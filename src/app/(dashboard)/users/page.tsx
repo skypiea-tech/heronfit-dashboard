@@ -86,36 +86,50 @@ const UserManagementPage = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      // Replace 'users' with your actual Supabase table name if different
-      // Selecting columns available in the listed schema. Need to determine how to get user_type, status, bookings, and last_active.
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, first_name, last_name, email_address, has_session");
+      try {
+        // First fetch users
+        const { data: usersData, error: usersError } = await supabase
+          .from("users")
+          .select("id, first_name, last_name, email_address, has_session");
 
-      if (error) {
-        console.error("Error fetching users:", error);
-        setError(error.message);
-        setLoading(false);
-      } else {
+        if (usersError) throw usersError;
+
+        // Then fetch session counts for all users
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from("sessions")
+          .select("user_id");
+
+        if (sessionsError) throw sessionsError;
+
+        // Create a map of user_id to session count
+        const sessionCounts = sessionsData.reduce((acc: Record<string, number>, curr: { user_id: string }) => {
+          acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
+          return acc;
+        }, {});
+
         // Map the fetched data to your User interface
-        // Need to adjust this mapping based on how user_type, status, bookings, and last_active are determined.
-        const fetchedUsers: User[] = data.map((user) => ({
+        const fetchedUsers: User[] = usersData.map((user) => ({
           id: user.id,
-          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(), // Combine first and last name
-          email: user.email_address || "", // Use email_address column
-          user_type: "Unknown", // Placeholder: Need to determine how to get this
-          status: user.has_session ? "active" : "inactive", // Assuming 'has_session' can indicate status
-          bookings: 0, // Placeholder: Need to fetch this from bookings table
-          last_active: "N/A", // Placeholder: Need a last_active timestamp column and formatting
+          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+          email: user.email_address || "",
+          user_type: "Unknown",
+          status: user.has_session ? "active" : "inactive",
+          bookings: sessionCounts[user.id] || 0,
+          last_active: "N/A",
         }));
+
         setUsers(fetchedUsers);
         setLoading(false);
-        setError(null); // Clear any previous error
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setError(error instanceof Error ? error.message : "An error occurred");
+        setLoading(false);
       }
     };
 
     fetchUsers();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   // Helper function to get initials for avatar placeholder
   const getInitials = (name: string) => {
