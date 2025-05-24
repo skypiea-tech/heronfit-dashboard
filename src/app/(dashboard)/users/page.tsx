@@ -21,6 +21,25 @@ interface User {
   last_active: string; // This will likely be a timestamp and need formatting
 }
 
+// Helper function to format time difference
+const formatTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+
+  if (diffInDays > 0) {
+    return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`;
+  } else if (diffInHours > 0) {
+    return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
+  } else if (diffInMinutes > 0) {
+    return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
+  } else {
+    return `${diffInSeconds} ${diffInSeconds === 1 ? 'second' : 'seconds'} ago`;
+  }
+};
+
 const UserManagementPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,18 +123,44 @@ const UserManagementPage = () => {
 
         if (usersError) throw usersError;
 
-        // Then fetch session counts for all users
+        // Fetch sessions with created_at
         const { data: sessionsData, error: sessionsError } = await supabase
           .from("sessions")
-          .select("user_id");
+          .select("user_id, created_at");
 
         if (sessionsError) throw sessionsError;
+
+        // Fetch workouts with timestamp
+        const { data: workoutsData, error: workoutsError } = await supabase
+          .from("workouts")
+          .select("user_id, timestamp");
+
+        if (workoutsError) throw workoutsError;
 
         // Create a map of user_id to session count
         const sessionCounts = sessionsData.reduce((acc: Record<string, number>, curr: { user_id: string }) => {
           acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
           return acc;
         }, {});
+
+        // Create a map of user_id to last activity timestamp
+        const lastActivityMap: Record<string, Date> = {};
+        
+        // Process sessions timestamps
+        sessionsData.forEach((session) => {
+          const timestamp = new Date(session.created_at);
+          if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
+            lastActivityMap[session.user_id] = timestamp;
+          }
+        });
+
+        // Process workouts timestamps
+        workoutsData.forEach((workout) => {
+          const timestamp = new Date(workout.timestamp);
+          if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
+            lastActivityMap[workout.user_id] = timestamp;
+          }
+        });
 
         // Map the fetched data to your User interface
         const fetchedUsers: User[] = usersData.map((user) => ({
@@ -125,7 +170,7 @@ const UserManagementPage = () => {
           user_type: "Unknown",
           status: user.has_session ? "active" : "inactive",
           bookings: sessionCounts[user.id] || 0,
-          last_active: "N/A",
+          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "N/A",
         }));
 
         setUsers(fetchedUsers);
