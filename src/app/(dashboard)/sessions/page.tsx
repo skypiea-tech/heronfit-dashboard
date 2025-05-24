@@ -25,8 +25,8 @@ interface TimeSlot {
 }
 
 const SessionManagementPage = () => {
-  const [currentOccupancy, setCurrentOccupancy] = useState(23); // Dummy Data
-  const [maximumCapacity, setMaximumCapacity] = useState(50); // Dummy Data
+  const [currentOccupancy] = useState(23); // Dummy Data
+  const [maximumCapacity] = useState(50); // Dummy Data
   const [summaryData, setSummaryData] = useState<SessionSummary | null>(null); // Dummy Data
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]); // Dummy Data
   const [loading, setLoading] = useState(true);
@@ -205,7 +205,7 @@ const SessionManagementPage = () => {
           {/* Today's Summary */}
           {summaryData && (
             <div className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-xl font-header mb-4">Today's Summary</h2>
+              <h2 className="text-xl font-header mb-4">Today&apos;s Summary</h2>
               <div className="space-y-2 text-text">
                 <div className="flex justify-between">
                   <p className="text-gray-600">Peak Occupancy</p>
@@ -233,7 +233,7 @@ const SessionManagementPage = () => {
 
       {/* Today's Time Slots */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-header mb-4">Today's Time Slots</h2>
+        <h2 className="text-xl font-header mb-4">Today&apos;s Time Slots</h2>
         <p className="text-body text-gray-600 mb-6">
           Monitor capacity for each time slot.
         </p>

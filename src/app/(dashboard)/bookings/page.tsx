@@ -6,8 +6,9 @@ import {
   EyeIcon,
   XCircleIcon,
   CheckCircleIcon,
-  ClockIcon,
 } from "@heroicons/react/24/outline";
+import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 // Define a type for booking data
 interface Booking {
@@ -28,71 +29,105 @@ const BookingManagementPage = () => {
   const [loading, setLoading] = useState(true);
 
   // Dummy data for summary counts and bookings
-  const summaryData = {
-    totalBookings: 6,
-    confirmed: 3,
-    pending: 1,
-    waitlisted: 1,
-  };
+  // const summaryData = {
+  //   totalBookings: 6,
+  //   confirmed: 3,
+  //   pending: 1,
+  //   waitlisted: 1,
+  // };
 
-  const dummyBookings: Booking[] = [
-    {
-      id: "bk001",
-      booking_id: "BK001",
-      user_id: "user1",
-      user_name: "John Silva",
-      user_email: "john.silva@umak.edu.ph",
-      user_type: "Student",
-      date: "2025-05-24",
-      time_slot: "09:00 AM - 10:00 AM",
-      status: "confirmed",
-      ticket_id: "TK-240001",
-    },
-    {
-      id: "bk002",
-      booking_id: "BK002",
-      user_id: "user2",
-      user_name: "Maria Santos",
-      user_email: "maria.santos@umak.edu.ph",
-      user_type: "Faculty",
-      date: "2025-05-24",
-      time_slot: "10:30 AM - 11:30 AM",
-      status: "pending",
-      ticket_id: "TK-240002",
-    },
-    {
-      id: "bk003",
-      booking_id: "BK003",
-      user_id: "user3",
-      user_name: "Carlos Lopez",
-      user_email: "carlos.lopez@umak.edu.ph",
-      user_type: "Staff",
-      date: "2025-05-24",
-      time_slot: "02:00 PM - 03:00 PM",
-      status: "confirmed",
-      ticket_id: "TK-240003",
-    },
-    {
-      id: "bk004",
-      booking_id: "BK004",
-      user_id: "user4",
-      user_name: "Ana Rodriguez",
-      user_email: "ana.rodriguez@umak.edu.ph",
-      user_type: "Student",
-      date: "2025-05-24",
-      time_slot: "03:30 PM - 04:30 PM",
-      status: "waitlisted",
-      ticket_id: null,
-    },
-    // Add more dummy data as needed to match screenshot/requirements
-  ];
+  // const dummyBookings: Booking[] = [
+  //   {
+  //     id: "bk001",
+  //     booking_id: "BK001",
+  //     user_id: "user1",
+  //     user_name: "John Silva",
+  //     user_email: "john.silva@umak.edu.ph",
+  //     user_type: "Student",
+  //     date: "2025-05-24",
+  //     time_slot: "09:00 AM - 10:00 AM",
+  //     status: "confirmed",
+  //     ticket_id: "TK-240001",
+  //   },
+  //   {
+  //     id: "bk002",
+  //     booking_id: "BK002",
+  //     user_id: "user2",
+  //     user_name: "Maria Santos",
+  //     user_email: "maria.santos@umak.edu.ph",
+  //     user_type: "Faculty",
+  //     date: "2025-05-24",
+  //     time_slot: "10:30 AM - 11:30 AM",
+  //     status: "pending",
+  //     ticket_id: "TK-240002",
+  //   },
+  //   {
+  //     id: "bk003",
+  //     user_id: "user3",
+  //     user_name: "Carlos Lopez",
+  //     user_email: "carlos.lopez@umak.edu.ph",
+  //     user_type: "Staff",
+  //     date: "2025-05-24",
+  //     time_slot: "02:00 PM - 03:00 PM",
+  //     status: "confirmed",
+  //     ticket_id: "TK-240003",
+  //   },
+  //   {
+  //     id: "bk004",
+  //     user_id: "user4",
+  //     user_name: "Ana Rodriguez",
+  //     user_email: "ana.rodriguez@umak.edu.ph",
+  //     user_type: "Student",
+  //     date: "2025-05-24",
+  //     time_slot: "03:30 PM - 04:30 PM",
+  //     status: "waitlisted",
+  //     ticket_id: null,
+  //   },
+  //   // Add more dummy data as needed to match screenshot/requirements
+  // ];
 
   useEffect(() => {
-    // For now, use dummy data
-    setBookings(dummyBookings);
-    setLoading(false);
-    // TODO: Implement Supabase data fetching here later
-  }, []);
+    let isMounted = true; // Flag to track if the component is mounted
+
+    const fetchBookings = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("*, users(user_name, user_email, user_type)"); // Assuming a 'bookings' table and a 'users' table linked by user_id
+
+      if (isMounted) {
+        if (error) {
+          console.error("Error fetching bookings:", error);
+          // Handle error state, maybe display an error message
+          setBookings([]);
+        } else {
+          // Map the fetched data to the Booking interface
+          const fetchedBookings: Booking[] =
+            data?.map((item: any) => ({
+              id: item.id,
+              booking_id: item.booking_id,
+              user_id: item.user_id,
+              user_name: item.users.user_name, // Assuming user data is nested under 'users'
+              user_email: item.users.user_email,
+              user_type: item.users.user_type,
+              date: item.date,
+              time_slot: item.time_slot,
+              status: item.status,
+              ticket_id: item.ticket_id,
+            })) || [];
+          setBookings(fetchedBookings);
+        }
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+
+    // Cleanup function to set isMounted to false when the component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array means this effect runs once on mount
 
   // Helper function to get initials for avatar placeholder
   const getInitials = (name: string) => {
@@ -118,26 +153,24 @@ const BookingManagementPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Total Bookings</p>
-          <p className="text-2xl font-bold text-text">
-            {summaryData.totalBookings}
-          </p>
+          <p className="text-2xl font-bold text-text">{bookings.length}</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Confirmed</p>
           <p className="text-2xl font-bold text-green-600">
-            {summaryData.confirmed}
+            {bookings.filter((b) => b.status === "confirmed").length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Pending</p>
           <p className="text-2xl font-bold text-yellow-600">
-            {summaryData.pending}
+            {bookings.filter((b) => b.status === "pending").length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Waitlisted</p>
           <p className="text-2xl font-bold text-blue-600">
-            {summaryData.waitlisted}
+            {bookings.filter((b) => b.status === "waitlisted").length}
           </p>
         </div>
       </div>

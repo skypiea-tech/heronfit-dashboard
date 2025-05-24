@@ -7,7 +7,7 @@ const DashboardPage = () => {
     <div className="">
       <h1 className="text-3xl font-header mb-2">Dashboard Overview</h1>
       <p className="text-body text-lg mb-6">
-        Welcome back! Here's what's happening at UMak Gym today.
+        Welcome back! Here&apos;s what&apos;s happening at UMak Gym today.
       </p>
 
       {/* Summary Cards */}
@@ -45,7 +45,7 @@ const DashboardPage = () => {
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-semibold text-gray-700">
-              Today's Bookings
+              Today&apos;s Bookings
             </h3>
             {/* Placeholder Icon */}
             <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
