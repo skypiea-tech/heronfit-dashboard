@@ -4,7 +4,7 @@ import React from "react";
 
 const DashboardPage = () => {
   return (
-    <div className="p-6 bg-background text-text min-h-screen">
+    <div className="">
       <h1 className="text-3xl font-header mb-2">Dashboard Overview</h1>
       <p className="text-body text-lg mb-6">
         Welcome back! Here's what's happening at UMak Gym today.
