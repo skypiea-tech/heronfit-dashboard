@@ -4,6 +4,23 @@ import React, { useState, useEffect } from "react";
 // Importing placeholder icons if needed, but charting libraries often handle their own visuals
 // import { ChartBarIcon, ChartPieIcon, ChartLineIcon } from '@heroicons/react/24/outline';
 
+// Import Recharts components
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
 // Define types for data (based on screenshot/PRD)
 interface SummaryMetric {
   value: string;
@@ -189,32 +206,91 @@ const AnalyticsPage = () => {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Weekly Bookings vs Attendance (Bar Chart Placeholder) */}
+        {/* Weekly Bookings vs Attendance (Bar Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">
             Weekly Bookings vs Attendance
           </h2>
-          {/* TODO: Implement Bar Chart Here (e.g., using Chart.js, Recharts, Nivo) */}
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            [Bar Chart Placeholder]
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={dummyWeeklyData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="bookings" fill="#443dff" name="Bookings" />
+                <Bar dataKey="attendance" fill="#2f27ce" name="Attendance" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Daily Occupancy Pattern (Line Chart Placeholder) */}
+        {/* Daily Occupancy Pattern (Line Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">Daily Occupancy Pattern</h2>
-          {/* TODO: Implement Line Chart Here (e.g., using Chart.js, Recharts, Nivo) */}
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            [Line Chart Placeholder]
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dummyDailyOccupancyData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="time" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="occupancy"
+                  stroke="#443dff"
+                  activeDot={{ r: 8 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* User Type Distribution (Pie Chart Placeholder) */}
+        {/* User Type Distribution (Pie Chart) */}
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
           <h2 className="text-xl font-header mb-4">User Type Distribution</h2>
-          {/* TODO: Implement Pie Chart Here (e.g., using Chart.js, Recharts, Nivo) */}
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            [Pie Chart Placeholder]
+          <div className="h-64 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={dummyUserTypeData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="percentage"
+                  labelLine={false}
+                >
+                  {dummyUserTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    `${value}%`,
+                    props.payload.type,
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
           {/* Basic Legend (replace with chart library legend) */}
           <div className="flex justify-center space-x-4 mt-4">
@@ -233,12 +309,34 @@ const AnalyticsPage = () => {
           </div>
         </div>
 
-        {/* Monthly Trends (Line Chart Placeholder) */}
+        {/* Monthly Trends (Line Chart) */}
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
           <h2 className="text-xl font-header mb-4">Monthly Trends</h2>
-          {/* TODO: Implement Line Chart Here (e.g., using Chart.js, Recharts, Nivo) */}
-          <div className="h-64 flex items-center justify-center text-gray-500">
-            [Line Chart Placeholder]
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dummyMonthlyTrendsData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#2f27ce"
+                  activeDot={{ r: 8 }}
+                  name="Trend"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
