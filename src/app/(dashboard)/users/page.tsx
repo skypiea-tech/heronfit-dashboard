@@ -14,12 +14,12 @@ import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 // Define a type for user data (adjust according to your Supabase schema)
 interface User {
   id: string;
-  name: string;
+  name: string; // Will be derived from first_name and last_name
   email: string;
-  user_type: string; // Assuming 'user_type' is the column name in Supabase
-  status: "active" | "inactive"; // Assuming 'status' is the column name
-  bookings: number; // Assuming a 'bookings' count is available or can be joined/calculated
-  last_active: string; // Assuming 'last_active' is the column name
+  user_type: string; // This might need to be fetched or inferred from another table/column
+  status: "active" | "inactive"; // This might be derived from 'has_session' or another status column
+  bookings: number; // This will likely need to be fetched from a bookings table
+  last_active: string; // This will likely be a timestamp and need formatting
 }
 
 const UserManagementPage = () => {
@@ -28,88 +28,94 @@ const UserManagementPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Dummy data based on the screenshot
-  const dummyUsers: User[] = [
-    {
-      id: "1",
-      name: "John Silva",
-      email: "john.silva@umak.edu.ph",
-      user_type: "Student",
-      status: "active",
-      bookings: 15,
-      last_active: "2 hours ago",
-    },
-    {
-      id: "2",
-      name: "Maria Santos",
-      email: "maria.santos@umak.edu.ph",
-      user_type: "Faculty",
-      status: "active",
-      bookings: 23,
-      last_active: "1 day ago",
-    },
-    {
-      id: "3",
-      name: "Carlos Lopez",
-      email: "carlos.lopez@umak.edu.ph",
-      user_type: "Staff",
-      status: "inactive",
-      bookings: 8,
-      last_active: "1 week ago",
-    },
-    {
-      id: "4",
-      name: "Ana Rodriguez",
-      email: "ana.rodriguez@umak.edu.ph",
-      user_type: "Student",
-      status: "active",
-      bookings: 31,
-      last_active: "30 minutes ago",
-    },
-    {
-      id: "5",
-      name: "Miguel Torres",
-      email: "miguel.torres@umak.edu.ph",
-      user_type: "Student",
-      status: "active",
-      bookings: 12,
-      last_active: "3 hours ago",
-    },
-    {
-      id: "6",
-      name: "Sofia Martinez",
-      email: "sofia.martinez@umak.edu.ph",
-      user_type: "Faculty",
-      status: "active",
-      bookings: 19,
-      last_active: "2 days ago",
-    },
-  ];
+  // const dummyUsers: User[] = [
+  //   {
+  //     id: "1",
+  //     name: "John Silva",
+  //     email: "john.silva@umak.edu.ph",
+  //     user_type: "Student",
+  //     status: "active",
+  //     bookings: 15,
+  //     last_active: "2 hours ago",
+  //   },
+  //   {
+  //     id: "2",
+  //     name: "Maria Santos",
+  //     email: "maria.santos@umak.edu.ph",
+  //     user_type: "Faculty",
+  //     status: "active",
+  //     bookings: 23,
+  //     last_active: "1 day ago",
+  //   },
+  //   {
+  //     id: "3",
+  //     name: "Carlos Lopez",
+  //     email: "carlos.lopez@umak.edu.ph",
+  //     user_type: "Staff",
+  //     status: "inactive",
+  //     bookings: 8,
+  //     last_active: "1 week ago",
+  //   },
+  //   {
+  //     id: "4",
+  //     name: "Ana Rodriguez",
+  //     email: "ana.rodriguez@umak.edu.ph",
+  //     user_type: "Student",
+  //     status: "active",
+  //     bookings: 31,
+  //     last_active: "30 minutes ago",
+  //   },
+  //   {
+  //     id: "5",
+  //     name: "Miguel Torres",
+  //     email: "miguel.torres@umak.edu.ph",
+  //     user_type: "Student",
+  //     status: "active",
+  //     bookings: 12,
+  //     last_active: "3 hours ago",
+  //   },
+  //   {
+  //     id: "6",
+  //     name: "Sofia Martinez",
+  //     email: "sofia.martinez@umak.edu.ph",
+  //     user_type: "Faculty",
+  //     status: "active",
+  //     bookings: 19,
+  //     last_active: "2 days ago",
+  //   },
+  // ];
 
   useEffect(() => {
-    // const fetchUsers = async () => {
-    //   // Replace 'users' with your actual Supabase table name if different
-    //   const { data, error } = await supabase
-    //     .from("users")
-    //     .select("id, name, email, user_type, status, bookings, last_active"); // Select the columns you need
+    const fetchUsers = async () => {
+      // Replace 'users' with your actual Supabase table name if different
+      // Selecting columns available in the listed schema. Need to determine how to get user_type, status, bookings, and last_active.
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email_address, has_session");
 
-    //   if (error) {
-    //     console.error("Error fetching users:", error);
-    //     setError(error.message);
-    //     setLoading(false);
-    //   } else {
-    //     // Map the fetched data to your User interface if necessary
-    //     // For now, assuming column names match the interface
-    //     setUsers(data as User[]);
-    //     setLoading(false);
-    //   }
-    // };
+      if (error) {
+        console.error("Error fetching users:", error);
+        setError(error.message);
+        setLoading(false);
+      } else {
+        // Map the fetched data to your User interface
+        // Need to adjust this mapping based on how user_type, status, bookings, and last_active are determined.
+        const fetchedUsers: User[] = data.map((user) => ({
+          id: user.id,
+          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(), // Combine first and last name
+          email: user.email_address || "", // Use email_address column
+          user_type: "Unknown", // Placeholder: Need to determine how to get this
+          status: user.has_session ? "active" : "inactive", // Assuming 'has_session' can indicate status
+          bookings: 0, // Placeholder: Need to fetch this from bookings table
+          last_active: "N/A", // Placeholder: Need a last_active timestamp column and formatting
+        }));
+        setUsers(fetchedUsers);
+        setLoading(false);
+        setError(null); // Clear any previous error
+      }
+    };
 
-    // fetchUsers();
-
-    // Use dummy data for now
-    setUsers(dummyUsers);
-    setLoading(false);
-    setError(null); // Clear any previous error
+    fetchUsers();
   }, []); // Empty dependency array means this effect runs once on mount
 
   // Helper function to get initials for avatar placeholder
