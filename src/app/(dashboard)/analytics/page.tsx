@@ -56,6 +56,93 @@ interface Insight {
   value: string;
 }
 
+// Dummy data based on the screenshot - Moved outside the component
+const dummySummaryMetrics: SummaryMetric[] = [
+  {
+    value: "1,247",
+    description: "Total Bookings This Month",
+    change: "+12%",
+    changeType: "increase",
+  },
+  {
+    value: "43",
+    description: "Average Daily Attendance",
+    change: "+8%",
+    changeType: "increase",
+  },
+  {
+    value: "7.2%",
+    description: "No-Show Rate",
+    change: "-2.1%",
+    changeType: "decrease",
+  },
+  {
+    value: "89%",
+    description: "Peak Utilization",
+    change: "+5%",
+    changeType: "increase",
+  },
+];
+
+const dummyWeeklyData: WeeklyData[] = [
+  { day: "Mon", bookings: 45, attendance: 42 },
+  { day: "Tue", bookings: 55, attendance: 48 },
+  { day: "Wed", bookings: 38, attendance: 35 },
+  { day: "Thu", bookings: 62, attendance: 58 },
+  { day: "Fri", bookings: 50, attendance: 45 },
+  { day: "Sat", bookings: 35, attendance: 30 },
+  { day: "Sun", bookings: 30, attendance: 28 },
+];
+
+const dummyDailyOccupancyData: DailyOccupancyPoint[] = [
+  { time: "6AM", occupancy: 5 },
+  { time: "7AM", occupancy: 10 },
+  { time: "8AM", occupancy: 22 },
+  { time: "9AM", occupancy: 24 },
+  { time: "10AM", occupancy: 19 },
+  { time: "11AM", occupancy: 15 },
+  { time: "12PM", occupancy: 8 },
+  { time: "1PM", occupancy: 22 },
+  { time: "2PM", occupancy: 28 },
+  { time: "3PM", occupancy: 25 },
+  { time: "4PM", occupancy: 20 },
+  { time: "5PM", occupancy: 15 },
+  { time: "6PM", occupancy: 10 },
+];
+
+const dummyUserTypeData: UserTypeData[] = [
+  { type: "Students", percentage: 65, color: "#443dff" }, // Primary color-ish
+  { type: "Faculty", percentage: 25, color: "#dddbff" }, // Secondary color-ish
+  { type: "Staff", percentage: 10, color: "#2f27ce" }, // A darker primary
+];
+
+const dummyMonthlyTrendsData: MonthlyData[] = [
+  { month: "Jan", value: 400 },
+  { month: "Feb", value: 380 },
+  { month: "Mar", value: 450 },
+  { month: "Apr", value: 500 },
+  { month: "May", value: 480 },
+  // Add more months
+];
+
+const dummyPeakHours: Insight[] = [
+  { label: "Morning Peak", value: "8:00 - 9:00 AM" },
+  { label: "Afternoon Peak", value: "2:00 - 3:00 PM" },
+  { label: "Lowest Usage", value: "12:00 - 1:00 PM" },
+];
+
+const dummyBookingInsights: Insight[] = [
+  { label: "Average Booking Lead Time", value: "1.5 days" },
+  { label: "Cancellation Rate", value: "12%" },
+  { label: "Same-day Bookings", value: "35%" },
+];
+
+const dummyUserEngagement: Insight[] = [
+  { label: "Regular Users (5+ bookings/month)", value: "78%" },
+  { label: "New Users This Month", value: "23" },
+  { label: "Return Rate", value: "85%" },
+];
+
 const AnalyticsPage = () => {
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetric[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
@@ -69,93 +156,6 @@ const AnalyticsPage = () => {
   const [userEngagement, setUserEngagement] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Dummy data based on the screenshot
-  const dummySummaryMetrics: SummaryMetric[] = [
-    {
-      value: "1,247",
-      description: "Total Bookings This Month",
-      change: "+12%",
-      changeType: "increase",
-    },
-    {
-      value: "43",
-      description: "Average Daily Attendance",
-      change: "+8%",
-      changeType: "increase",
-    },
-    {
-      value: "7.2%",
-      description: "No-Show Rate",
-      change: "-2.1%",
-      changeType: "decrease",
-    },
-    {
-      value: "89%",
-      description: "Peak Utilization",
-      change: "+5%",
-      changeType: "increase",
-    },
-  ];
-
-  const dummyWeeklyData: WeeklyData[] = [
-    { day: "Mon", bookings: 45, attendance: 42 },
-    { day: "Tue", bookings: 55, attendance: 48 },
-    { day: "Wed", bookings: 38, attendance: 35 },
-    { day: "Thu", bookings: 62, attendance: 58 },
-    { day: "Fri", bookings: 50, attendance: 45 },
-    { day: "Sat", bookings: 35, attendance: 30 },
-    { day: "Sun", bookings: 30, attendance: 28 },
-  ];
-
-  const dummyDailyOccupancyData: DailyOccupancyPoint[] = [
-    { time: "6AM", occupancy: 5 },
-    { time: "7AM", occupancy: 10 },
-    { time: "8AM", occupancy: 22 },
-    { time: "9AM", occupancy: 24 },
-    { time: "10AM", occupancy: 19 },
-    { time: "11AM", occupancy: 15 },
-    { time: "12PM", occupancy: 8 },
-    { time: "1PM", occupancy: 22 },
-    { time: "2PM", occupancy: 28 },
-    { time: "3PM", occupancy: 25 },
-    { time: "4PM", occupancy: 20 },
-    { time: "5PM", occupancy: 15 },
-    { time: "6PM", occupancy: 10 },
-  ];
-
-  const dummyUserTypeData: UserTypeData[] = [
-    { type: "Students", percentage: 65, color: "#443dff" }, // Primary color-ish
-    { type: "Faculty", percentage: 25, color: "#dddbff" }, // Secondary color-ish
-    { type: "Staff", percentage: 10, color: "#2f27ce" }, // A darker primary
-  ];
-
-  const dummyMonthlyTrendsData: MonthlyData[] = [
-    { month: "Jan", value: 400 },
-    { month: "Feb", value: 380 },
-    { month: "Mar", value: 450 },
-    { month: "Apr", value: 500 },
-    { month: "May", value: 480 },
-    // Add more months
-  ];
-
-  const dummyPeakHours: Insight[] = [
-    { label: "Morning Peak", value: "8:00 - 9:00 AM" },
-    { label: "Afternoon Peak", value: "2:00 - 3:00 PM" },
-    { label: "Lowest Usage", value: "12:00 - 1:00 PM" },
-  ];
-
-  const dummyBookingInsights: Insight[] = [
-    { label: "Average Booking Lead Time", value: "1.5 days" },
-    { label: "Cancellation Rate", value: "12%" },
-    { label: "Same-day Bookings", value: "35%" },
-  ];
-
-  const dummyUserEngagement: Insight[] = [
-    { label: "Regular Users (5+ bookings/month)", value: "78%" },
-    { label: "New Users This Month", value: "23" },
-    { label: "Return Rate", value: "85%" },
-  ];
-
   useEffect(() => {
     // For now, use dummy data
     setSummaryMetrics(dummySummaryMetrics);
@@ -168,7 +168,7 @@ const AnalyticsPage = () => {
     setUserEngagement(dummyUserEngagement);
     setLoading(false);
     // TODO: Implement Supabase data fetching here later
-  }, []);
+  }, []); // Empty dependency array as dummy data is constant
 
   if (loading) {
     return (
@@ -214,7 +214,7 @@ const AnalyticsPage = () => {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={dummyWeeklyData}
+                data={weeklyData} // Use state variable
                 margin={{
                   top: 5,
                   right: 30,
@@ -240,7 +240,7 @@ const AnalyticsPage = () => {
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={dummyDailyOccupancyData}
+                data={dailyOccupancyData} // Use state variable
                 margin={{
                   top: 5,
                   right: 30,
@@ -258,6 +258,7 @@ const AnalyticsPage = () => {
                   dataKey="occupancy"
                   stroke="#443dff"
                   activeDot={{ r: 8 }}
+                  name="Occupancy"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -265,57 +266,47 @@ const AnalyticsPage = () => {
         </div>
 
         {/* User Type Distribution (Pie Chart) */}
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
-          <h2 className="text-xl font-header mb-4">User Type Distribution</h2>
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-header mb-4">
+            User Type Distribution (Sample)
+          </h2>
           <div className="h-64 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={dummyUserTypeData}
+                  data={userTypeData} // Use state variable
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="percentage"
-                  labelLine={false}
+                  label={({ name, percentage }) =>
+                    `${name}: ${(percentage * 1).toFixed(0)}%`
+                  }
                 >
-                  {dummyUserTypeData.map((entry, index) => (
+                  {userTypeData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value, name, props) => [
-                    `${value}%`,
+                  formatter={(value: number, name: string, props) => [
+                    `${value.toFixed(0)}%`,
                     props.payload.type,
                   ]}
                 />
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          {/* Basic Legend (replace with chart library legend) */}
-          <div className="flex justify-center space-x-4 mt-4">
-            {dummyUserTypeData.map((userType, index) => (
-              <div
-                key={index}
-                className="flex items-center text-sm text-gray-700"
-              >
-                <span
-                  className="inline-block w-3 h-3 rounded-full mr-1"
-                  style={{ backgroundColor: userType.color }}
-                ></span>
-                {userType.type} ({userType.percentage}%)
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Monthly Trends (Line Chart) */}
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-1">
-          <h2 className="text-xl font-header mb-4">Monthly Trends</h2>
+        {/* Monthly Booking Trends (Line Chart) */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-header mb-4">Monthly Booking Trends</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={dummyMonthlyTrendsData}
+                data={monthlyTrendsData} // Use state variable
                 margin={{
                   top: 5,
                   right: 30,
@@ -331,9 +322,9 @@ const AnalyticsPage = () => {
                 <Line
                   type="monotone"
                   dataKey="value"
-                  stroke="#2f27ce"
+                  stroke="#443dff"
                   activeDot={{ r: 8 }}
-                  name="Trend"
+                  name="Bookings"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -342,46 +333,45 @@ const AnalyticsPage = () => {
       </div>
 
       {/* Insights Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Peak Hours */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">Peak Hours</h2>
-          <div className="space-y-2">
+          <ul>
             {peakHours.map((insight, index) => (
-              <div key={index} className="flex justify-between text-text">
-                <p className="text-gray-600 text-sm">{insight.label}</p>
-                <p className="font-medium text-sm">{insight.value}</p>
-              </div>
+              <li key={index} className="mb-2 text-body">
+                <span className="font-medium">{insight.label}:</span>{" "}
+                {insight.value}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        {/* Booking Insights */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">Booking Insights</h2>
-          <div className="space-y-2">
+          <ul>
             {bookingInsights.map((insight, index) => (
-              <div key={index} className="flex justify-between text-text">
-                <p className="text-gray-600 text-sm">{insight.label}</p>
-                <p className="font-medium text-sm">{insight.value}</p>
-              </div>
+              <li key={index} className="mb-2 text-body">
+                <span className="font-medium">{insight.label}:</span>{" "}
+                {insight.value}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        {/* User Engagement */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">User Engagement</h2>
-          <div className="space-y-2">
+          <ul>
             {userEngagement.map((insight, index) => (
-              <div key={index} className="flex justify-between text-text">
-                <p className="text-gray-600 text-sm">{insight.label}</p>
-                <p className="font-medium text-sm">{insight.value}</p>
-              </div>
+              <li key={index} className="mb-2 text-body">
+                <span className="font-medium">{insight.label}:</span>{" "}
+                {insight.value}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
+
+      {/* TODO: Add more sections as needed, e.g., detailed tables, filters */}
     </div>
   );
 };

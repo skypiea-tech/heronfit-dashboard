@@ -6,7 +6,6 @@ import {
   EyeIcon,
   XCircleIcon,
   CheckCircleIcon,
-  ClockIcon,
 } from "@heroicons/react/24/outline";
 
 // Define a type for booking data
@@ -92,7 +91,7 @@ const BookingManagementPage = () => {
     setBookings(dummyBookings);
     setLoading(false);
     // TODO: Implement Supabase data fetching here later
-  }, []);
+  }, [dummyBookings]);
 
   // Helper function to get initials for avatar placeholder
   const getInitials = (name: string) => {

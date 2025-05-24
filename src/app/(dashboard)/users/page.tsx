@@ -5,7 +5,6 @@ import {
   MagnifyingGlassIcon,
   EyeIcon,
   PencilIcon,
-  TrashIcon,
   CheckCircleIcon,
   XCircleIcon,
 } from "@heroicons/react/24/outline";

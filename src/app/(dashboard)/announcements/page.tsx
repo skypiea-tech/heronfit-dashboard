@@ -8,7 +8,6 @@ import {
   ExclamationTriangleIcon, // for Alert type
   InformationCircleIcon, // for Information type
   CalendarIcon, // for scheduled status/date
-  ClockIcon, // for scheduled time
 } from "@heroicons/react/24/outline";
 
 // Define types for data
