@@ -1,5 +1,10 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+<<<<<<< HEAD
 .cursor/    
+=======
+
+.cursor/
+>>>>>>> e2310c715fd78fcb747cfa6d45d89caae54f25c6
 
 # dependencies
 /node_modules
