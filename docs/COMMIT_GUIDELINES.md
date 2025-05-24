@@ -1,6 +1,6 @@
 # Commit Message Guidelines
 
-We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for our commit messages. This helps us create an explicit commit history, which makes it easier to write automated tools over the history, and makes it easier for contributors to contribute to the project.
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for our commit messages. This helps us create an explicit commit history, which makes it easier to write automated tools over the history, and makes it easier for contributors to contribute to the project.
 
 Commit messages should be structured as follows:
 
