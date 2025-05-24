@@ -87,11 +87,20 @@ const BookingManagementPage = () => {
   ];
 
   useEffect(() => {
+    let isMounted = true; // Flag to track if the component is mounted
+
     // For now, use dummy data
-    setBookings(dummyBookings);
-    setLoading(false);
+    if (isMounted) {
+      setBookings(dummyBookings);
+      setLoading(false);
+    }
     // TODO: Implement Supabase data fetching here later
-  }, [dummyBookings]);
+
+    // Cleanup function to set isMounted to false when the component unmounts
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Helper function to get initials for avatar placeholder
   const getInitials = (name: string) => {
