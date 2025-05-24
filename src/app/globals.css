@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font Declarations */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash_display/ClashDisplay-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/poppins/Poppins-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* You can keep the root color variables if needed elsewhere, 
+   but Tailwind classes should override them for the elements 
+   where they are applied. */
+:root {
+  --background: #fbfbfe; /* Using PRD background color */
+  --foreground: #050316; /* Using PRD text color */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Define dark mode colors if needed */
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  /* Remove default font-family to let Tailwind utilities control fonts */
+  /* color: var(--foreground); */
+  /* background: var(--background); */
+}
