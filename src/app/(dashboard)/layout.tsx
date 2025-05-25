@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   HomeIcon,
   UsersIcon,
@@ -10,7 +10,9 @@ import {
   ScaleIcon,
   MegaphoneIcon,
   ChartBarIcon,
+  ArrowLeftStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
+import { supabase } from "@/lib/supabaseClient";
 
 const DashboardLayout = ({
   children,
@@ -18,6 +20,7 @@ const DashboardLayout = ({
   children: React.ReactNode;
 }>) => {
   const pathname = usePathname();
+  const router = useRouter();
 
   const navLinks = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
@@ -28,10 +31,20 @@ const DashboardLayout = ({
     { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
   ];
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error logging out:", error);
+    } else {
+      console.log("Logged out successfully.");
+      router.push("/login");
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-md p-6 space-y-6 sticky top-0 h-screen">
+      <div className="w-64 bg-white shadow-md p-6 space-y-6 sticky top-0 h-screen flex flex-col">
         {/* Logo and Title */}
         <div className="flex items-center space-x-2 mb-8">
           {/* Placeholder for Logo */}
@@ -40,7 +53,7 @@ const DashboardLayout = ({
         </div>
 
         {/* Navigation */}
-        <nav className="space-y-2">
+        <nav className="space-y-2 flex-grow">
           {navLinks.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -61,8 +74,8 @@ const DashboardLayout = ({
         </nav>
 
         {/* Admin User Info (Placeholder) */}
-        <div className="absolute bottom-6 left-0 w-full px-6">
-          <div className="flex items-center space-x-3">
+        <div className="mt-auto">
+          <div className="flex items-center space-x-3 mb-6">
             {/* Placeholder Avatar */}
             <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
             <div>
@@ -70,6 +83,13 @@ const DashboardLayout = ({
               <p className="text-xs text-gray-500">UMak Gym Staff</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-3 p-2 rounded-md transition-colors text-text hover:bg-secondary w-full"
+          >
+            <ArrowLeftStartOnRectangleIcon className="w-5 h-5" />
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 

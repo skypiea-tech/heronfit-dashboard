@@ -8,10 +8,13 @@ import {
   ExclamationTriangleIcon, // for Alert type
   InformationCircleIcon, // for Information type
   CalendarIcon, // for scheduled status/date
+  ArrowLeftStartOnRectangleIcon, // Import logout icon
 } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation"; // Import useRouter for redirection
 import AnnouncementList from "./components/AnnouncementList";
 import AnnouncementForm from "./components/AnnouncementForm";
 import { getAnnouncements, addAnnouncement } from "./models/announcementModel";
+import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 
 // Define types for data matching Supabase schema
 interface SupabaseAnnouncement {
@@ -53,6 +56,8 @@ const AnnouncementsPage: React.FC = () => {
     scheduledTime: "",
     publishedAt: undefined as string | undefined,
   });
+
+  const router = useRouter(); // Initialize useRouter
 
   // Function to fetch and transform announcements
   const fetchAndSetAnnouncements = async () => {
@@ -197,6 +202,17 @@ const AnnouncementsPage: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error logging out:", error);
+      // Optionally display an error message to the user
+    } else {
+      console.log("Logged out successfully.");
+      router.push("/login"); // Redirect to login page after logout
+    }
+  };
+
   // Show loading or error for initial fetch
   if (loading && announcements.length === 0 && !error) {
     return (
@@ -216,8 +232,6 @@ const AnnouncementsPage: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-100 text-gray-800 min-h-screen">
-      {" "}
-      {/* Use gray-100 for background and gray-800 for text */}
       <h1 className="text-3xl font-bold mb-2">Announcement Management</h1>{" "}
       {/* Use font-bold */}
       <p className="text-lg mb-6">
