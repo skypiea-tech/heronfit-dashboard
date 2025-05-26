@@ -21,10 +21,39 @@ interface User {
   last_active: string; // This will likely be a timestamp and need formatting
 }
 
+// Helper function to format time difference
+const formatTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+
+  if (diffInDays > 0) {
+    return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`;
+  } else if (diffInHours > 0) {
+    return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
+  } else if (diffInMinutes > 0) {
+    return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
+  } else {
+    return `${diffInSeconds} ${diffInSeconds === 1 ? 'second' : 'seconds'} ago`;
+  }
+};
+
 const UserManagementPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter users based on search term
+  const filteredUsers = users.filter((user) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower)
+    );
+  });
 
   // Dummy data based on the screenshot
   // const dummyUsers: User[] = [
@@ -86,36 +115,76 @@ const UserManagementPage = () => {
 
   useEffect(() => {
     const fetchUsers = async () => {
-      // Replace 'users' with your actual Supabase table name if different
-      // Selecting columns available in the listed schema. Need to determine how to get user_type, status, bookings, and last_active.
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, first_name, last_name, email_address, has_session");
+      try {
+        // First fetch users
+        const { data: usersData, error: usersError } = await supabase
+          .from("users")
+          .select("id, first_name, last_name, email_address, has_session");
 
-      if (error) {
-        console.error("Error fetching users:", error);
-        setError(error.message);
-        setLoading(false);
-      } else {
+        if (usersError) throw usersError;
+
+        // Fetch sessions with created_at
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from("sessions")
+          .select("user_id, created_at");
+
+        if (sessionsError) throw sessionsError;
+
+        // Fetch workouts with timestamp
+        const { data: workoutsData, error: workoutsError } = await supabase
+          .from("workouts")
+          .select("user_id, timestamp");
+
+        if (workoutsError) throw workoutsError;
+
+        // Create a map of user_id to session count
+        const sessionCounts = sessionsData.reduce((acc: Record<string, number>, curr: { user_id: string }) => {
+          acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Create a map of user_id to last activity timestamp
+        const lastActivityMap: Record<string, Date> = {};
+        
+        // Process sessions timestamps
+        sessionsData.forEach((session) => {
+          const timestamp = new Date(session.created_at);
+          if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
+            lastActivityMap[session.user_id] = timestamp;
+          }
+        });
+
+        // Process workouts timestamps
+        workoutsData.forEach((workout) => {
+          const timestamp = new Date(workout.timestamp);
+          if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
+            lastActivityMap[workout.user_id] = timestamp;
+          }
+        });
+
         // Map the fetched data to your User interface
-        // Need to adjust this mapping based on how user_type, status, bookings, and last_active are determined.
-        const fetchedUsers: User[] = data.map((user) => ({
+        const fetchedUsers: User[] = usersData.map((user) => ({
           id: user.id,
-          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(), // Combine first and last name
-          email: user.email_address || "", // Use email_address column
-          user_type: "Unknown", // Placeholder: Need to determine how to get this
-          status: user.has_session ? "active" : "inactive", // Assuming 'has_session' can indicate status
-          bookings: 0, // Placeholder: Need to fetch this from bookings table
-          last_active: "N/A", // Placeholder: Need a last_active timestamp column and formatting
+          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
+          email: user.email_address || "",
+          user_type: "Unknown",
+          status: user.has_session ? "active" : "inactive",
+          bookings: sessionCounts[user.id] || 0,
+          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "N/A",
         }));
+
         setUsers(fetchedUsers);
         setLoading(false);
-        setError(null); // Clear any previous error
+        setError(null);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setError(error instanceof Error ? error.message : "An error occurred");
+        setLoading(false);
       }
     };
 
     fetchUsers();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
   // Helper function to get initials for avatar placeholder
   const getInitials = (name: string) => {
@@ -148,6 +217,8 @@ const UserManagementPage = () => {
             type="text"
             placeholder="Search users by name or email..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
         </div>
@@ -180,7 +251,7 @@ const UserManagementPage = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <tr
                 key={user.id}
                 className="border-b last:border-b-0 text-sm text-text"
