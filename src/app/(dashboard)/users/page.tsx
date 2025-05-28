@@ -116,29 +116,42 @@ const UserManagementPage = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
+        setLoading(true);
+        setError(null);
+
         // First fetch users
         const { data: usersData, error: usersError } = await supabase
           .from("users")
           .select("id, first_name, last_name, email_address, has_session");
 
-        if (usersError) throw usersError;
+        if (usersError) {
+          throw new Error(`Failed to fetch users: ${usersError.message}`);
+        }
+
+        if (!usersData) {
+          throw new Error("No user data received");
+        }
 
         // Fetch sessions with created_at
         const { data: sessionsData, error: sessionsError } = await supabase
-          .from("sessions")
+          .from("bookings")
           .select("user_id, created_at");
 
-        if (sessionsError) throw sessionsError;
+        if (sessionsError) {
+          throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
+        }
 
         // Fetch workouts with timestamp
         const { data: workoutsData, error: workoutsError } = await supabase
           .from("workouts")
           .select("user_id, timestamp");
 
-        if (workoutsError) throw workoutsError;
+        if (workoutsError) {
+          throw new Error(`Failed to fetch workouts: ${workoutsError.message}`);
+        }
 
         // Create a map of user_id to session count
-        const sessionCounts = sessionsData.reduce((acc: Record<string, number>, curr: { user_id: string }) => {
+        const sessionCounts = (sessionsData || []).reduce((acc: Record<string, number>, curr: { user_id: string }) => {
           acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
           return acc;
         }, {});
@@ -147,38 +160,41 @@ const UserManagementPage = () => {
         const lastActivityMap: Record<string, Date> = {};
         
         // Process sessions timestamps
-        sessionsData.forEach((session) => {
-          const timestamp = new Date(session.created_at);
-          if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
-            lastActivityMap[session.user_id] = timestamp;
+        (sessionsData || []).forEach((session) => {
+          if (session.created_at) {
+            const timestamp = new Date(session.created_at);
+            if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
+              lastActivityMap[session.user_id] = timestamp;
+            }
           }
         });
 
         // Process workouts timestamps
-        workoutsData.forEach((workout) => {
-          const timestamp = new Date(workout.timestamp);
-          if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
-            lastActivityMap[workout.user_id] = timestamp;
+        (workoutsData || []).forEach((workout) => {
+          if (workout.timestamp) {
+            const timestamp = new Date(workout.timestamp);
+            if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
+              lastActivityMap[workout.user_id] = timestamp;
+            }
           }
         });
 
         // Map the fetched data to your User interface
         const fetchedUsers: User[] = usersData.map((user) => ({
           id: user.id,
-          name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
-          email: user.email_address || "",
+          name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
+          email: user.email_address || "No email provided",
           user_type: "Unknown",
           status: user.has_session ? "active" : "inactive",
           bookings: sessionCounts[user.id] || 0,
-          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "N/A",
+          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
         }));
 
         setUsers(fetchedUsers);
-        setLoading(false);
-        setError(null);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        setError(error instanceof Error ? error.message : "An error occurred");
+        console.error("Error in fetchUsers:", error);
+        setError(error instanceof Error ? error.message : "An unexpected error occurred while fetching users");
+      } finally {
         setLoading(false);
       }
     };

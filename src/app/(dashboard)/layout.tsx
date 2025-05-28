@@ -25,7 +25,7 @@ const DashboardLayout = ({
     { name: "Bookings", href: "/bookings", icon: CalendarIcon },
     { name: "Gym Occupancy", href: "/sessions", icon: ScaleIcon },
     { name: "Announcements", href: "/announcements", icon: MegaphoneIcon },
-    { name: "Analytics", href: "/analytics", icon: ChartBarIcon },
+    { name: "Data & Reports", href: "/analytics", icon: ChartBarIcon },
   ];
 
   return (
