@@ -18,7 +18,7 @@ interface User {
   id: string;
   name: string; // Will be derived from first_name and last_name
   email: string;
-  user_type: string; // This might need to be fetched or inferred from another table/column
+  user_role: "STUDENT" | "FACULTY/STAFF" | "PUBLIC"; // Updated to match the actual roles
   status: "active" | "inactive"; // This might be derived from 'has_session' or another status column
   bookings: number; // This will likely need to be fetched from a bookings table
   last_active: string; // This will likely be a timestamp and need formatting
@@ -427,7 +427,7 @@ const UserManagementPage = () => {
   //     id: "1",
   //     name: "John Silva",
   //     email: "john.silva@umak.edu.ph",
-  //     user_type: "Student",
+  //     user_role: "Student",
   //     status: "active",
   //     bookings: 15,
   //     last_active: "2 hours ago",
@@ -436,7 +436,7 @@ const UserManagementPage = () => {
   //     id: "2",
   //     name: "Maria Santos",
   //     email: "maria.santos@umak.edu.ph",
-  //     user_type: "Faculty",
+  //     user_role: "Faculty",
   //     status: "active",
   //     bookings: 23,
   //     last_active: "1 day ago",
@@ -445,7 +445,7 @@ const UserManagementPage = () => {
   //     id: "3",
   //     name: "Carlos Lopez",
   //     email: "carlos.lopez@umak.edu.ph",
-  //     user_type: "Staff",
+  //     user_role: "Staff",
   //     status: "inactive",
   //     bookings: 8,
   //     last_active: "1 week ago",
@@ -454,7 +454,7 @@ const UserManagementPage = () => {
   //     id: "4",
   //     name: "Ana Rodriguez",
   //     email: "ana.rodriguez@umak.edu.ph",
-  //     user_type: "Student",
+  //     user_role: "Student",
   //     status: "active",
   //     bookings: 31,
   //     last_active: "30 minutes ago",
@@ -463,7 +463,7 @@ const UserManagementPage = () => {
   //     id: "5",
   //     name: "Miguel Torres",
   //     email: "miguel.torres@umak.edu.ph",
-  //     user_type: "Student",
+  //     user_role: "Student",
   //     status: "active",
   //     bookings: 12,
   //     last_active: "3 hours ago",
@@ -472,7 +472,7 @@ const UserManagementPage = () => {
   //     id: "6",
   //     name: "Sofia Martinez",
   //     email: "sofia.martinez@umak.edu.ph",
-  //     user_type: "Faculty",
+  //     user_role: "Faculty",
   //     status: "active",
   //     bookings: 19,
   //     last_active: "2 days ago",
@@ -488,7 +488,7 @@ const UserManagementPage = () => {
         // First fetch users
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, first_name, last_name, email_address, has_session");
+          .select("id, first_name, last_name, email_address, has_session, user_role");
 
         if (usersError) {
           throw new Error(`Failed to fetch users: ${usersError.message}`);
@@ -550,7 +550,7 @@ const UserManagementPage = () => {
           id: user.id,
           name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
           email: user.email_address || "No email provided",
-          user_type: "Unknown",
+          user_role: user.user_role || "PUBLIC",
           status: user.has_session ? "active" : "inactive",
           bookings: sessionCounts[user.id] || 0,
           last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
@@ -656,16 +656,14 @@ const UserManagementPage = () => {
                 <td className="py-4 px-2">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.user_type === "Student"
+                      user.user_role === "STUDENT"
                         ? "bg-blue-100 text-blue-800"
-                        : user.user_type === "Faculty"
+                        : user.user_role === "FACULTY/STAFF"
                         ? "bg-purple-100 text-purple-800"
-                        : user.user_type === "Staff"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-200 text-gray-800"
+                        : "bg-gray-100 text-gray-800"
                     }`}
                   >
-                    {user.user_type}
+                    {user.user_role}
                   </span>
                 </td>
                 <td className="py-4 px-2">
