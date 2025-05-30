@@ -17,14 +17,19 @@ interface Announcement {
   target_audience?: string | null;
   type?: string | null;
   published_at?: string | null;
+  archived?: boolean | null;
 }
 
 interface AnnouncementListProps {
   announcements: Announcement[];
+  onArchive?: (id: string) => void;
+  onUnarchive?: (id: string) => void;
 }
 
 const AnnouncementList: React.FC<AnnouncementListProps> = ({
   announcements,
+  onArchive,
+  onUnarchive,
 }) => {
   if (!announcements || announcements.length === 0) {
     return <p>No announcements found.</p>;
@@ -79,6 +84,24 @@ const AnnouncementList: React.FC<AnnouncementListProps> = ({
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
+                  {onArchive && !announcement.archived && (
+                    <button
+                      className="text-yellow-600 hover:text-yellow-800"
+                      title="Archive Announcement"
+                      onClick={() => onArchive(announcement.id)}
+                    >
+                      Archive
+                    </button>
+                  )}
+                  {onUnarchive && announcement.archived && (
+                    <button
+                      className="text-green-600 hover:text-green-800"
+                      title="Unarchive Announcement"
+                      onClick={() => onUnarchive(announcement.id)}
+                    >
+                      Unarchive
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex items-center text-sm text-gray-500 mt-3">
@@ -116,3 +139,5 @@ const AnnouncementList: React.FC<AnnouncementListProps> = ({
 };
 
 export default AnnouncementList;
+
+export type { Announcement };
