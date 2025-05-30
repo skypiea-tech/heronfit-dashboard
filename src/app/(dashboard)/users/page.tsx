@@ -411,14 +411,20 @@ const UserManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [roleFilter, setRoleFilter] = useState<string>("");
 
-  // Filter users based on search term
+  // Filter users based on search term and filters
   const filteredUsers = users.filter((user) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = 
       user.name.toLowerCase().includes(searchLower) ||
-      user.email.toLowerCase().includes(searchLower)
-    );
+      user.email.toLowerCase().includes(searchLower);
+    
+    const matchesStatus = !statusFilter || user.status === statusFilter;
+    const matchesRole = !roleFilter || user.user_role === roleFilter;
+
+    return matchesSearch && matchesStatus && matchesRole;
   });
 
   // Dummy data based on the screenshot
@@ -631,17 +637,25 @@ const UserManagementPage = () => {
           <MagnifyingGlassIcon className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
         </div>
         <div className="flex flex-col sm:flex-row gap-4">
-          <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
+          <select 
+            className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
             <option value="">All Status</option>
             <option value="active">Active</option>
             <option value="idle">Idle</option>
             <option value="inactive">Inactive</option>
           </select>
-          <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
+          <select 
+            className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
             <option value="">All Types</option>
-            <option value="student">Student</option>
-            <option value="faculty">Faculty</option>
-            <option value="staff">Staff</option>
+            <option value="STUDENT">Student</option>
+            <option value="FACULTY/STAFF">Faculty/Staff</option>
+            <option value="PUBLIC">Public</option>
           </select>
         </div>
       </div>
@@ -660,77 +674,85 @@ const UserManagementPage = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
-              <tr
-                key={user.id}
-                className="border-b last:border-b-0 text-sm text-text"
-              >
-                <td className="py-4 pr-2 flex items-center">
-                  {/* Placeholder Avatar with Initials */}
-                  <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
-                    {getInitials(user.name)}
-                  </div>
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-gray-500 text-xs">{user.email}</p>
-                  </div>
-                </td>
-                <td className="py-4 px-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.user_role === "STUDENT"
-                        ? "bg-blue-100 text-blue-800"
-                        : user.user_role === "FACULTY/STAFF"
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {user.user_role}
-                  </span>
-                </td>
-                <td className="py-4 px-2">
-                  <span
-                    className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium ${
-                      user.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : user.status === "idle"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : user.status === "inactive"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-gray-200 text-gray-800"
-                    }`}
-                  >
-                    {user.status}
-                  </span>
-                </td>
-                <td className="py-4 px-2">{user.bookings}</td>
-                <td className="py-4 px-2 text-gray-500">{user.last_active}</td>
-                <td className="py-4 pl-2 flex items-center space-x-2">
-                  {/* Action Icons */}
-                  <button className="text-blue-600 hover:text-blue-800">
-                    <EyeIcon className="w-5 h-5" />
-                  </button>
-                  <button className="text-yellow-600 hover:text-yellow-800">
-                    <PencilIcon className="w-5 h-5" />
-                  </button>
-                  {user.status === "active" ? (
-                    <button
-                      className="text-red-600 hover:text-red-800"
-                      title="Deactivate"
-                    >
-                      <XCircleIcon className="w-5 h-5" />
-                    </button>
-                  ) : (
-                    <button
-                      className="text-green-600 hover:text-green-800"
-                      title="Activate"
-                    >
-                      <CheckCircleIcon className="w-5 h-5" />
-                    </button>
-                  )}
+            {filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-gray-500">
+                  No users found matching the current filters
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredUsers.map((user) => (
+                <tr
+                  key={user.id}
+                  className="border-b last:border-b-0 text-sm text-text"
+                >
+                  <td className="py-4 pr-2 flex items-center">
+                    {/* Placeholder Avatar with Initials */}
+                    <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
+                      {getInitials(user.name)}
+                    </div>
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-gray-500 text-xs">{user.email}</p>
+                    </div>
+                  </td>
+                  <td className="py-4 px-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.user_role === "STUDENT"
+                          ? "bg-blue-100 text-blue-800"
+                          : user.user_role === "FACULTY/STAFF"
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {user.user_role}
+                    </span>
+                  </td>
+                  <td className="py-4 px-2">
+                    <span
+                      className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium ${
+                        user.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : user.status === "idle"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : user.status === "inactive"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-200 text-gray-800"
+                      }`}
+                    >
+                      {user.status}
+                    </span>
+                  </td>
+                  <td className="py-4 px-2">{user.bookings}</td>
+                  <td className="py-4 px-2 text-gray-500">{user.last_active}</td>
+                  <td className="py-4 pl-2 flex items-center space-x-2">
+                    {/* Action Icons */}
+                    <button className="text-blue-600 hover:text-blue-800">
+                      <EyeIcon className="w-5 h-5" />
+                    </button>
+                    <button className="text-yellow-600 hover:text-yellow-800">
+                      <PencilIcon className="w-5 h-5" />
+                    </button>
+                    {user.status === "active" ? (
+                      <button
+                        className="text-red-600 hover:text-red-800"
+                        title="Deactivate"
+                      >
+                        <XCircleIcon className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        className="text-green-600 hover:text-green-800"
+                        title="Activate"
+                      >
+                        <CheckCircleIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
