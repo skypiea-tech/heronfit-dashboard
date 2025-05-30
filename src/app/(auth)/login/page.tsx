@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 
 const LoginPage = () => {
+  const USE_DUMMY_LOGIN = true; // Toggle this to use dummy login instead of Supabase
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,6 +18,20 @@ const LoginPage = () => {
     setLoading(true);
 
     console.log("Attempting login with:", { email, password });
+
+    if (USE_DUMMY_LOGIN) {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Dummy login logic
+      if (email === "admin@heronfit.com" && password === "password") {
+        console.log("Login successful!");
+        router.push("/dashboard");
+      } else {
+        setError("Invalid email or password.");
+      }
+      setLoading(false);
+      return;
+    }
 
     // Use Supabase signInWithPassword
     const { data, error: signInError } = await supabase.auth.signInWithPassword(
@@ -39,20 +54,6 @@ const LoginPage = () => {
       // This case might occur if data is null but no error, potentially not authenticated
       setError("An unexpected error occurred during login.");
     }
-
-    // Removed dummy login logic:
-    // Simulate API call
-    // await new Promise((resolve) => setTimeout(resolve, 1000));
-    // Dummy login logic
-    // if (email === "admin@heronfit.com" && password === "password") {
-    //   console.log("Login successful!");
-    //   // TODO: Redirect to dashboard
-    //   router.push("/dashboard");
-    // } else {
-    //   setError("Invalid email or password.");
-    // }
-
-    // setLoading(false);
   };
 
   return (
