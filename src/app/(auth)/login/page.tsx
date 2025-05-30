@@ -4,8 +4,31 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 
+// ===== DUMMY LOGIN CONFIGURATION - START =====
+// To remove dummy login:
+// 1. Delete this entire section
+// 2. Remove the dummyLoginHdummyLoginHandlerandler import and usage below
+const DUMMY_LOGIN_CONFIG = {
+  enabled: true,
+  credentials: {
+    email: "admin@heronfit.com",
+    password: "password"
+  }
+};
+
+const dummyLoginHandler = async (email: string, password: string) => {
+  if (!DUMMY_LOGIN_CONFIG.enabled) return null;
+  
+  if (email === DUMMY_LOGIN_CONFIG.credentials.email && 
+      password === DUMMY_LOGIN_CONFIG.credentials.password) {
+    localStorage.setItem('isDummyLogin', 'true');
+    return true;
+  }
+  return null;
+};
+// ===== DUMMY LOGIN CONFIGURATION - END =====
+
 const LoginPage = () => {
-  const USE_DUMMY_LOGIN = true; // Toggle this to use dummy login instead of Supabase
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,40 +42,36 @@ const LoginPage = () => {
 
     console.log("Attempting login with:", { email, password });
 
-    if (USE_DUMMY_LOGIN) {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // Dummy login logic
-      if (email === "admin@heronfit.com" && password === "password") {
-        console.log("Login successful!");
+    try {
+      // Try dummy login first if enabled
+      const dummyLoginResult = await dummyLoginHandler(email, password);
+      if (dummyLoginResult) {
+        console.log("Dummy login successful!");
         router.push("/dashboard");
-      } else {
-        setError("Invalid email or password.");
+        return;
       }
-      setLoading(false);
-      return;
-    }
 
-    // Use Supabase signInWithPassword
-    const { data, error: signInError } = await supabase.auth.signInWithPassword(
-      {
+      // Proceed with Supabase authentication
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
+      });
+
+      if (signInError) {
+        console.error("Supabase sign in error:", signInError);
+        setError(signInError.message);
+      } else if (data.user) {
+        console.log("Login successful!", data.user);
+        localStorage.removeItem('isDummyLogin');
+        router.push("/dashboard");
+      } else {
+        setError("An unexpected error occurred during login.");
       }
-    );
-
-    setLoading(false);
-
-    if (signInError) {
-      console.error("Supabase sign in error:", signInError);
-      setError(signInError.message);
-    } else if (data.user) {
-      console.log("Login successful!", data.user);
-      // TODO: Optionally check if the user is an admin here before redirecting
-      router.push("/dashboard");
-    } else {
-      // This case might occur if data is null but no error, potentially not authenticated
+    } catch (err) {
+      console.error("Login error:", err);
       setError("An unexpected error occurred during login.");
+    } finally {
+      setLoading(false);
     }
   };
 
