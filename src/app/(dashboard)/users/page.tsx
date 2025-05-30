@@ -19,7 +19,7 @@ interface User {
   name: string; // Will be derived from first_name and last_name
   email: string;
   user_role: "STUDENT" | "FACULTY/STAFF" | "PUBLIC"; // Updated to match the actual roles
-  status: "active" | "inactive"; // This might be derived from 'has_session' or another status column
+  status: "active" | "idle" | "inactive"; // Updated to include idle status
   bookings: number; // This will likely need to be fetched from a bookings table
   last_active: string; // This will likely be a timestamp and need formatting
 }
@@ -546,15 +546,36 @@ const UserManagementPage = () => {
         });
 
         // Map the fetched data to your User interface
-        const fetchedUsers: User[] = usersData.map((user) => ({
-          id: user.id,
-          name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
-          email: user.email_address || "No email provided",
-          user_role: user.user_role || "PUBLIC",
-          status: user.has_session ? "active" : "inactive",
-          bookings: sessionCounts[user.id] || 0,
-          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
-        }));
+        const fetchedUsers: User[] = (usersData || []).map((user) => {
+          const lastActivity = lastActivityMap[user.id];
+          let status: "active" | "idle" | "inactive" = "inactive";
+          
+          if (lastActivity) {
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            
+            const oneDayAgo = new Date();
+            oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+            
+            if (lastActivity >= oneDayAgo) {
+              status = "active";
+            } else if (lastActivity >= sixMonthsAgo) {
+              status = "idle";
+            } else {
+              status = "inactive";
+            }
+          }
+
+          return {
+            id: user.id,
+            name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
+            email: user.email_address || "No email provided",
+            user_role: user.user_role || "PUBLIC",
+            status: status,
+            bookings: sessionCounts[user.id] || 0,
+            last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
+          };
+        });
 
         setUsers(fetchedUsers);
       } catch (error) {
@@ -613,6 +634,7 @@ const UserManagementPage = () => {
           <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
             <option value="">All Status</option>
             <option value="active">Active</option>
+            <option value="idle">Idle</option>
             <option value="inactive">Inactive</option>
           </select>
           <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
@@ -668,9 +690,11 @@ const UserManagementPage = () => {
                 </td>
                 <td className="py-4 px-2">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium ${
                       user.status === "active"
                         ? "bg-green-100 text-green-800"
+                        : user.status === "idle"
+                        ? "bg-yellow-100 text-yellow-800"
                         : user.status === "inactive"
                         ? "bg-red-100 text-red-800"
                         : "bg-gray-200 text-gray-800"
