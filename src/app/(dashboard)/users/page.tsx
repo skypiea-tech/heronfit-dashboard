@@ -421,8 +421,19 @@ const UserManagementPage = () => {
       user.name.toLowerCase().includes(searchLower) ||
       user.email.toLowerCase().includes(searchLower);
     
-    const matchesStatus = !statusFilter || user.status === statusFilter;
-    const matchesRole = !roleFilter || user.user_role === roleFilter;
+    // Handle status filtering
+    let matchesStatus = true;
+    if (statusFilter === "default") {
+      matchesStatus = user.status === "active" || user.status === "idle";
+    } else if (statusFilter) {
+      matchesStatus = user.status === statusFilter;
+    }
+
+    // Handle role filtering with flexible matching for FACULTY/STAFF
+    const matchesRole = !roleFilter || 
+      (roleFilter === "FACULTY/STAFF" 
+        ? ["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role)
+        : user.user_role === roleFilter);
 
     return matchesSearch && matchesStatus && matchesRole;
   });
@@ -642,10 +653,11 @@ const UserManagementPage = () => {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">All Status</option>
+            <option value="default">Default</option>
             <option value="active">Active</option>
             <option value="idle">Idle</option>
             <option value="inactive">Inactive</option>
+            <option value="" className="border-t border-gray-200 mt-2 pt-2">All Statuses</option>
           </select>
           <select 
             className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary"
@@ -701,12 +713,14 @@ const UserManagementPage = () => {
                       className={`px-2 py-1 rounded-full text-xs font-medium ${
                         user.user_role === "STUDENT"
                           ? "bg-blue-100 text-blue-800"
-                          : user.user_role === "FACULTY/STAFF"
+                          : ["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role)
                           ? "bg-purple-100 text-purple-800"
                           : "bg-gray-100 text-gray-800"
                       }`}
                     >
-                      {user.user_role}
+                      {["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role) 
+                        ? "FACULTY/STAFF" 
+                        : user.user_role}
                     </span>
                   </td>
                   <td className="py-4 px-2">
