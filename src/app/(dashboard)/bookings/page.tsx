@@ -7,7 +7,6 @@ import {
   XCircleIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
 // Define a type for booking data
@@ -22,6 +21,12 @@ interface Booking {
   time_slot: string;
   status: "confirmed" | "pending" | "cancelled" | "completed" | "waitlisted";
   ticket_id: string | null; // Ticket ID can be null for waitlisted or pending
+  users?: {
+    // Add optional users property
+    user_name: string;
+    user_email: string;
+    user_type: string;
+  } | null;
 }
 
 const BookingManagementPage = () => {
@@ -103,13 +108,13 @@ const BookingManagementPage = () => {
         } else {
           // Map the fetched data to the Booking interface
           const fetchedBookings: Booking[] =
-            data?.map((item: any) => ({
+            data?.map((item: Booking) => ({
               id: item.id,
               booking_id: item.booking_id,
               user_id: item.user_id,
-              user_name: item.users.user_name, // Assuming user data is nested under 'users'
-              user_email: item.users.user_email,
-              user_type: item.users.user_type,
+              user_name: item.users?.user_name || "", // Use optional chaining and provide a default empty string
+              user_email: item.users?.user_email || "", // Use optional chaining and provide a default empty string
+              user_type: item.users?.user_type || "", // Use optional chaining and provide a default empty string
               date: item.date,
               time_slot: item.time_slot,
               status: item.status,
