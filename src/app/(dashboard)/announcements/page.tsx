@@ -1,19 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  PaperAirplaneIcon,
-  PencilIcon,
-  TrashIcon,
-  ExclamationTriangleIcon, // for Alert type
-  InformationCircleIcon, // for Information type
-  CalendarIcon, // for scheduled status/date
-  ArrowLeftStartOnRectangleIcon, // Import logout icon
-} from "@heroicons/react/24/outline";
+import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation"; // Import useRouter for redirection
 import AnnouncementList from "./components/AnnouncementList";
 import AnnouncementForm from "./components/AnnouncementForm";
-import { getAnnouncements, addAnnouncement, archiveAnnouncement } from "./models/announcementModel";
+import {
+  getAnnouncements,
+  addAnnouncement,
+  archiveAnnouncement,
+} from "./models/announcementModel";
 import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 import type { Announcement } from "./components/AnnouncementList";
 
@@ -28,22 +24,14 @@ interface SupabaseAnnouncement {
   published_at?: string | null;
 }
 
-// Define type for data used in the component's state/rendering
-interface DisplayAnnouncement {
-  id: string;
-  title: string;
-  type: "information" | "alert";
-  message: string;
-  targetAudience: string[];
-  date: string;
-  time: string;
-  status: "sent" | "scheduled";
-}
-
 const AnnouncementsPage: React.FC = () => {
   // Use Announcement type for state
-  const [activeAnnouncements, setActiveAnnouncements] = useState<Announcement[]>([]);
-  const [archivedAnnouncements, setArchivedAnnouncements] = useState<Announcement[]>([]);
+  const [activeAnnouncements, setActiveAnnouncements] = useState<
+    Announcement[]
+  >([]);
+  const [archivedAnnouncements, setArchivedAnnouncements] = useState<
+    Announcement[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -67,10 +55,14 @@ const AnnouncementsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const active = (await getAnnouncements({ includeArchived: false })) as Announcement[];
-      const archived = (await getAnnouncements({ includeArchived: true })) as Announcement[];
-      setActiveAnnouncements(active.filter(a => !a.archived));
-      setArchivedAnnouncements(archived.filter(a => a.archived));
+      const active = (await getAnnouncements({
+        includeArchived: false,
+      })) as Announcement[];
+      const archived = (await getAnnouncements({
+        includeArchived: true,
+      })) as Announcement[];
+      setActiveAnnouncements(active.filter((a) => !a.archived));
+      setArchivedAnnouncements(archived.filter((a) => a.archived));
     } catch (err: any) {
       setError(err.message || "Failed to fetch announcements.");
       setActiveAnnouncements([]);
@@ -169,22 +161,15 @@ const AnnouncementsPage: React.FC = () => {
       });
       // And refetch/update the announcement history
       fetchAndSetAnnouncements();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error sending announcement:", err);
-      setError(err.message || "Failed to send announcement."); // Set error state
+      if (err instanceof Error) {
+        setError(err.message || "Failed to send announcement."); // Set error state
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false); // Stop loading
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error logging out:", error);
-      // Optionally display an error message to the user
-    } else {
-      console.log("Logged out successfully.");
-      router.push("/login"); // Redirect to login page after logout
     }
   };
 
@@ -194,8 +179,10 @@ const AnnouncementsPage: React.FC = () => {
     try {
       await archiveAnnouncement(id, true);
       fetchAndSetAnnouncements();
-    } catch (err: any) {
-      setError(err.message || "Failed to archive announcement.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to archive announcement."
+      );
     } finally {
       setLoading(false);
     }
@@ -207,15 +194,22 @@ const AnnouncementsPage: React.FC = () => {
     try {
       await archiveAnnouncement(id, false);
       fetchAndSetAnnouncements();
-    } catch (err: any) {
-      setError(err.message || "Failed to unarchive announcement.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to unarchive announcement."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   // Show loading or error for initial fetch
-  if (loading && activeAnnouncements.length === 0 && archivedAnnouncements.length === 0 && !error) {
+  if (
+    loading &&
+    activeAnnouncements.length === 0 &&
+    archivedAnnouncements.length === 0 &&
+    !error
+  ) {
     return (
       <div className="p-6 text-center text-gray-700">
         Loading announcements...
@@ -223,7 +217,11 @@ const AnnouncementsPage: React.FC = () => {
     );
   }
   // Show error if initial fetch failed
-  if (error && activeAnnouncements.length === 0 && archivedAnnouncements.length === 0) {
+  if (
+    error &&
+    activeAnnouncements.length === 0 &&
+    archivedAnnouncements.length === 0
+  ) {
     return (
       <div className="p-6 text-center text-red-500">
         Error loading announcements: {error}
@@ -416,10 +414,16 @@ const AnnouncementsPage: React.FC = () => {
         {/* Display send error */}
       </div>
       {/* Announcement List */}
-      <AnnouncementList announcements={activeAnnouncements} onArchive={handleArchive} />
+      <AnnouncementList
+        announcements={activeAnnouncements}
+        onArchive={handleArchive}
+      />
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">Archived Announcements</h2>
-        <AnnouncementList announcements={archivedAnnouncements} onUnarchive={handleUnarchive} />
+        <AnnouncementList
+          announcements={archivedAnnouncements}
+          onUnarchive={handleUnarchive}
+        />
       </div>
     </div>
   );
