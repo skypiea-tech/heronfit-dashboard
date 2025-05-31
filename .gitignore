@@ -2,6 +2,7 @@
 .cursor/mcp.json
 
 # dependencies
+/samples
 /node_modules
 /.pnp
 .pnp.*
