@@ -118,7 +118,7 @@ const SessionManagementPage = () => {
     setTimeSlots(dummyTimeSlots);
     setLoading(false);
     // TODO: Implement Supabase data fetching here later for real-time updates
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const occupancyPercentage = (currentOccupancy / maximumCapacity) * 100;
 

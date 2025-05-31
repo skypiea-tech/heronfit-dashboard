@@ -1,20 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  PaperAirplaneIcon,
-  PencilIcon,
-  TrashIcon,
-  ExclamationTriangleIcon, // for Alert type
-  InformationCircleIcon, // for Information type
-  CalendarIcon, // for scheduled status/date
-  ArrowLeftStartOnRectangleIcon, // Import logout icon
-} from "@heroicons/react/24/outline";
+import { PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation"; // Import useRouter for redirection
 import AnnouncementList from "./components/AnnouncementList";
 import AnnouncementForm from "./components/AnnouncementForm";
-import { getAnnouncements, addAnnouncement } from "./models/announcementModel";
+import {
+  getAnnouncements,
+  addAnnouncement,
+  archiveAnnouncement,
+} from "./models/announcementModel";
 import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
+import type { Announcement } from "./components/AnnouncementList";
 
 // Define types for data matching Supabase schema
 interface SupabaseAnnouncement {
@@ -27,23 +24,17 @@ interface SupabaseAnnouncement {
   published_at?: string | null;
 }
 
-// Define type for data used in the component's state/rendering
-interface DisplayAnnouncement {
-  id: string;
-  title: string;
-  type: "information" | "alert";
-  message: string;
-  targetAudience: string[];
-  date: string;
-  time: string;
-  status: "sent" | "scheduled";
-}
-
 const AnnouncementsPage: React.FC = () => {
-  // Use DisplayAnnouncement type for state
-  const [announcements, setAnnouncements] = useState<DisplayAnnouncement[]>([]);
+  // Use Announcement type for state
+  const [activeAnnouncements, setActiveAnnouncements] = useState<
+    Announcement[]
+  >([]);
+  const [archivedAnnouncements, setArchivedAnnouncements] = useState<
+    Announcement[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   // State for the new announcement form - stays the same as it reflects form inputs
   const [newAnnouncement, setNewAnnouncement] = useState({
@@ -62,44 +53,20 @@ const AnnouncementsPage: React.FC = () => {
   // Function to fetch and transform announcements
   const fetchAndSetAnnouncements = async () => {
     setLoading(true);
-    setError(null); // Reset error
+    setError(null);
     try {
-      // Cast fetched data to SupabaseAnnouncement[]
-      const data = (await getAnnouncements()) as SupabaseAnnouncement[]; // Fetch from Supabase
-      if (data) {
-        // Transform Supabase data to DisplayAnnouncement format
-        const transformedData: DisplayAnnouncement[] = data.map((item) => {
-          const createdAt = new Date(item.created_at);
-          const publishedAt = item.published_at
-            ? new Date(item.published_at)
-            : null;
-          const isScheduled = publishedAt && publishedAt > new Date();
-
-          return {
-            id: item.id,
-            title: item.title || "No Title", // Use title from Supabase, default if null
-            type: (item.type as "information" | "alert") || "information", // Cast/default type
-            message: item.content, // Use content from Supabase for message
-            // Split target_audience string into an array for rendering if it exists
-            targetAudience: item.target_audience
-              ? item.target_audience.split(",").map((item) => item.trim())
-              : ["all"],
-            date: createdAt.toLocaleDateString(),
-            time: createdAt.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            status: isScheduled ? "scheduled" : "sent",
-          };
-        });
-        setAnnouncements(transformedData);
-      } else {
-        setAnnouncements([]);
-      }
+      const active = (await getAnnouncements({
+        includeArchived: false,
+      })) as Announcement[];
+      const archived = (await getAnnouncements({
+        includeArchived: true,
+      })) as Announcement[];
+      setActiveAnnouncements(active.filter((a) => !a.archived));
+      setArchivedAnnouncements(archived.filter((a) => a.archived));
     } catch (err: any) {
-      console.error("Error fetching announcements:", err);
-      setError(err.message || "Failed to fetch announcements."); // Set error state
-      setAnnouncements([]); // Clear announcements on error
+      setError(err.message || "Failed to fetch announcements.");
+      setActiveAnnouncements([]);
+      setArchivedAnnouncements([]);
     } finally {
       setLoading(false);
     }
@@ -194,27 +161,55 @@ const AnnouncementsPage: React.FC = () => {
       });
       // And refetch/update the announcement history
       fetchAndSetAnnouncements();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error sending announcement:", err);
-      setError(err.message || "Failed to send announcement."); // Set error state
+      if (err instanceof Error) {
+        setError(err.message || "Failed to send announcement."); // Set error state
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false); // Stop loading
     }
   };
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error logging out:", error);
-      // Optionally display an error message to the user
-    } else {
-      console.log("Logged out successfully.");
-      router.push("/login"); // Redirect to login page after logout
+  const handleArchive = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await archiveAnnouncement(id, true);
+      fetchAndSetAnnouncements();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to archive announcement."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnarchive = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await archiveAnnouncement(id, false);
+      fetchAndSetAnnouncements();
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Failed to unarchive announcement."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
   // Show loading or error for initial fetch
-  if (loading && announcements.length === 0 && !error) {
+  if (
+    loading &&
+    activeAnnouncements.length === 0 &&
+    archivedAnnouncements.length === 0 &&
+    !error
+  ) {
     return (
       <div className="p-6 text-center text-gray-700">
         Loading announcements...
@@ -222,7 +217,11 @@ const AnnouncementsPage: React.FC = () => {
     );
   }
   // Show error if initial fetch failed
-  if (error && announcements.length === 0) {
+  if (
+    error &&
+    activeAnnouncements.length === 0 &&
+    archivedAnnouncements.length === 0
+  ) {
     return (
       <div className="p-6 text-center text-red-500">
         Error loading announcements: {error}
@@ -237,6 +236,17 @@ const AnnouncementsPage: React.FC = () => {
       <p className="text-lg mb-6">
         Create and manage announcements for gym users.
       </p>
+      <div className="mb-4">
+        <label className="inline-flex items-center">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={() => setShowArchived((prev) => !prev)}
+            className="form-checkbox"
+          />
+          <span className="ml-2">Show Archived Announcements</span>
+        </label>
+      </div>
       {/* Create New Announcement */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h2 className="text-xl font-bold mb-4">Create New Announcement</h2>
@@ -403,106 +413,17 @@ const AnnouncementsPage: React.FC = () => {
         )}{" "}
         {/* Display send error */}
       </div>
-      {/* Announcement History */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-4">Announcement History</h2>
-        <p className="text-gray-600 mb-6">
-          View and manage previously sent announcements
-        </p>
-        {loading && announcements.length === 0 && !error && (
-          <p>Loading announcements...</p>
-        )}{" "}
-        {/* Show loading specifically for list fetch */}
-        {!loading && error && announcements.length === 0 && (
-          <p className="text-red-500">Error loading announcements: {error}</p>
-        )}{" "}
-        {/* Show error specifically for list fetch */}
-        {!loading && !error && announcements.length > 0 && (
-          <div className="space-y-4">
-            {announcements.map((announcement) => (
-              <div
-                key={announcement.id}
-                className="border border-gray-200 rounded-md p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center">
-                    {announcement.type === "alert" ? (
-                      <ExclamationTriangleIcon className="w-5 h-5 text-red-500 mr-2" /> // Adjusted icon size
-                    ) : (
-                      <InformationCircleIcon className="w-5 h-5 text-blue-500 mr-2" /> // Adjusted icon size
-                    )}
-                    <div>
-                      <h3 className="font-medium text-gray-900">
-                        {announcement.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {announcement.message}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2 flex-shrink-0">
-                    {" "}
-                    {/* Added flex-shrink-0 */}
-                    <button
-                      className="text-gray-500 hover:text-gray-700"
-                      title="Edit Announcement"
-                    >
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="text-red-500 hover:text-red-700"
-                      title="Delete Announcement"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center text-sm text-gray-500 mt-3">
-                  {(announcement.date || announcement.time) && (
-                    <CalendarIcon className="w-4 h-4 mr-1" />
-                  )}
-                  {(announcement.date || announcement.time) && (
-                    <span className="mr-3">
-                      {announcement.date} {announcement.time}
-                    </span>
-                  )}
-
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      announcement.status === "sent"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    } mr-2`}
-                  >
-                    {announcement.status}
-                  </span>
-                  <div className="ml-3 flex space-x-1">
-                    {announcement.targetAudience.map(
-                      (
-                        audience,
-                        index // Added index for key
-                      ) => (
-                        <span
-                          key={audience + index} // Use index in key as audience might not be unique in this simplified structure
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            audience === "all"
-                              ? "bg-gray-200 text-gray-800" // Use gray-200/800 for 'all'
-                              : "bg-indigo-100 text-indigo-800" // Use indigo-100/800 for others
-                          }`}
-                        >
-                          {audience}
-                        </span>
-                      )
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {!loading && !error && announcements.length === 0 && (
-          <p>No announcements found.</p>
-        )}
+      {/* Announcement List */}
+      <AnnouncementList
+        announcements={activeAnnouncements}
+        onArchive={handleArchive}
+      />
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-4">Archived Announcements</h2>
+        <AnnouncementList
+          announcements={archivedAnnouncements}
+          onUnarchive={handleUnarchive}
+        />
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ interface AnnouncementFormProps {
     target_audience?: string | null;
     type?: string | null;
     published_at?: string | null;
-  }) => Promise<any>;
+  }) => Promise<{ data: any; error: any }>;
 }
 
 const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
@@ -44,17 +44,25 @@ const AnnouncementForm: React.FC<AnnouncementFormProps> = ({
     };
 
     try {
-      await addAnnouncement(newAnnouncement);
+      const result = await addAnnouncement(newAnnouncement);
 
-      setTitle("");
-      setContent("");
-      setTargetAudience("");
-      setType("");
-      setPublishedAt("");
-      setScheduleForLater(false);
-      onAnnouncementAdded();
-    } catch (err: any) {
-      setError(err.message);
+      if (result.error) {
+        setError(result.error.message);
+      } else {
+        setTitle("");
+        setContent("");
+        setTargetAudience("");
+        setType("");
+        setPublishedAt("");
+        setScheduleForLater(false);
+        onAnnouncementAdded();
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setLoading(false);
     }
