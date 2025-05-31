@@ -11,7 +11,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 import { Dialog } from "@headlessui/react";
-import { differenceInYears } from "date-fns";
+import { differenceInYears, format } from "date-fns";
 
 // Define a type for user data (adjust according to your Supabase schema)
 interface User {
@@ -22,6 +22,9 @@ interface User {
   status: "active" | "idle" | "inactive"; // Updated to include idle status
   bookings: number; // This will likely need to be fetched from a bookings table
   last_active: string; // This will likely be a timestamp and need formatting
+  avatar?: string | null;
+  first_name?: string;
+  last_name?: string;
 }
 
 // Add new interfaces for the form
@@ -39,6 +42,21 @@ interface UserFormData {
   contact?: string;
   user_role: "STUDENT" | "FACULTY/STAFF" | "PUBLIC";
   role_status?: "UNVERIFIED" | "VERIFIED";
+}
+
+// Add new interface for user details
+interface UserDetails extends User {
+  first_name: string;
+  last_name: string;
+  email_address: string;
+  birthday: string;
+  gender: string;
+  weight: number;
+  height: number;
+  goal: string;
+  contact?: string;
+  role_status?: string;
+  avatar?: string | null;
 }
 
 // Helper function to format time difference
@@ -406,6 +424,145 @@ const CreateUserButton = () => {
   );
 };
 
+// Add ViewUserDetails component
+const ViewUserDetails = ({ user, isOpen, onClose }: { user: UserDetails | null, isOpen: boolean, onClose: () => void }) => {
+  if (!user) return null;
+
+  const calculateAge = (birthday: string) => {
+    if (!birthday) return "";
+    return `${differenceInYears(new Date(), new Date(birthday))} years old`;
+  };
+
+  const formatBirthday = (birthday: string) => {
+    if (!birthday) return "";
+    const date = new Date(birthday);
+    return `${format(date, "MMMM d, yyyy")} (${calculateAge(birthday)})`;
+  };
+
+  const convertWeight = (weight: number) => {
+    const kg = weight;
+    const lbs = (weight * 2.20462).toFixed(1);
+    return `${kg} kg (${lbs} lbs)`;
+  };
+
+  const convertHeight = (height: number) => {
+    const cm = height;
+    const ft = (height / 30.48).toFixed(1);
+    return `${cm} cm (${ft} ft)`;
+  };
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      className="fixed inset-0 z-10 overflow-y-auto"
+    >
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="fixed inset-0 bg-black opacity-30" />
+
+        <div className="relative bg-white rounded-lg max-w-2xl w-full mx-4 p-6">
+          <Dialog.Title className="text-lg font-medium mb-4">
+            User Details
+          </Dialog.Title>
+
+          <div className="space-y-4">
+            {/* Avatar Section */}
+            <div className="flex justify-center mb-6">
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={`${user.first_name} ${user.last_name}`}
+                  className="w-64 h-64 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-64 h-64 bg-gray-200 rounded-full flex items-center justify-center text-4xl font-medium text-gray-600">
+                  {getInitials(user.first_name, user.last_name)}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">First Name</label>
+                <p className="mt-1 text-sm text-gray-900">{user.first_name}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                <p className="mt-1 text-sm text-gray-900">{user.last_name}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <p className="mt-1 text-sm text-gray-900">{user.email_address}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Birthday</label>
+                <p className="mt-1 text-sm text-gray-900">{formatBirthday(user.birthday)}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Gender</label>
+                <p className="mt-1 text-sm text-gray-900 capitalize">{user.gender}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Weight</label>
+                <p className="mt-1 text-sm text-gray-900">{convertWeight(user.weight)}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Height</label>
+                <p className="mt-1 text-sm text-gray-900">{convertHeight(user.height)}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Goal</label>
+              <p className="mt-1 text-sm text-gray-900 capitalize">{user.goal.replace(/_/g, ' ')}</p>
+            </div>
+
+            {user.contact && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Contact</label>
+                <p className="mt-1 text-sm text-gray-900">{user.contact}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">User Role</label>
+                <p className="mt-1 text-sm text-gray-900">{user.user_role}</p>
+              </div>
+              {user.role_status && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Role Status</label>
+                  <p className="mt-1 text-sm text-gray-900">{user.role_status}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+  );
+};
+
 const UserManagementPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -413,6 +570,8 @@ const UserManagementPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
+  const [selectedUser, setSelectedUser] = useState<UserDetails | null>(null);
+  const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
 
   // Filter users based on search term and filters
   const filteredUsers = users.filter((user) => {
@@ -438,64 +597,6 @@ const UserManagementPage = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
-  // Dummy data based on the screenshot
-  // const dummyUsers: User[] = [
-  //   {
-  //     id: "1",
-  //     name: "John Silva",
-  //     email: "john.silva@umak.edu.ph",
-  //     user_role: "Student",
-  //     status: "active",
-  //     bookings: 15,
-  //     last_active: "2 hours ago",
-  //   },
-  //   {
-  //     id: "2",
-  //     name: "Maria Santos",
-  //     email: "maria.santos@umak.edu.ph",
-  //     user_role: "Faculty",
-  //     status: "active",
-  //     bookings: 23,
-  //     last_active: "1 day ago",
-  //   },
-  //   {
-  //     id: "3",
-  //     name: "Carlos Lopez",
-  //     email: "carlos.lopez@umak.edu.ph",
-  //     user_role: "Staff",
-  //     status: "inactive",
-  //     bookings: 8,
-  //     last_active: "1 week ago",
-  //   },
-  //   {
-  //     id: "4",
-  //     name: "Ana Rodriguez",
-  //     email: "ana.rodriguez@umak.edu.ph",
-  //     user_role: "Student",
-  //     status: "active",
-  //     bookings: 31,
-  //     last_active: "30 minutes ago",
-  //   },
-  //   {
-  //     id: "5",
-  //     name: "Miguel Torres",
-  //     email: "miguel.torres@umak.edu.ph",
-  //     user_role: "Student",
-  //     status: "active",
-  //     bookings: 12,
-  //     last_active: "3 hours ago",
-  //   },
-  //   {
-  //     id: "6",
-  //     name: "Sofia Martinez",
-  //     email: "sofia.martinez@umak.edu.ph",
-  //     user_role: "Faculty",
-  //     status: "active",
-  //     bookings: 19,
-  //     last_active: "2 days ago",
-  //   },
-  // ];
-
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -505,7 +606,7 @@ const UserManagementPage = () => {
         // First fetch users
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, first_name, last_name, email_address, has_session, user_role");
+          .select("id, first_name, last_name, email_address, has_session, user_role, avatar");
 
         if (usersError) {
           throw new Error(`Failed to fetch users: ${usersError.message}`);
@@ -584,13 +685,16 @@ const UserManagementPage = () => {
           }
 
           return {
-            id: user.id,
-            name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
-            email: user.email_address || "No email provided",
-            user_role: user.user_role || "PUBLIC",
+          id: user.id,
+          name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
+          email: user.email_address || "No email provided",
+          user_role: user.user_role || "PUBLIC",
             status: status,
-            bookings: sessionCounts[user.id] || 0,
-            last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
+          bookings: sessionCounts[user.id] || 0,
+          last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
+            avatar: user.avatar || null,
+            first_name: user.first_name || "",
+            last_name: user.last_name || ""
           };
         });
 
@@ -613,6 +717,25 @@ const UserManagementPage = () => {
       .map((n) => n[0])
       .join("")
       .toUpperCase();
+  };
+
+  const handleViewUser = async (userId: string) => {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (userError) throw userError;
+
+      if (userData) {
+        setSelectedUser(userData as UserDetails);
+        setIsViewDetailsOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    }
   };
 
   if (loading) {
@@ -694,77 +817,87 @@ const UserManagementPage = () => {
               </tr>
             ) : (
               filteredUsers.map((user) => (
-                <tr
-                  key={user.id}
-                  className="border-b last:border-b-0 text-sm text-text"
-                >
-                  <td className="py-4 pr-2 flex items-center">
-                    {/* Placeholder Avatar with Initials */}
-                    <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
-                      {getInitials(user.name)}
-                    </div>
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-gray-500 text-xs">{user.email}</p>
-                    </div>
-                  </td>
-                  <td className="py-4 px-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.user_role === "STUDENT"
-                          ? "bg-blue-100 text-blue-800"
+              <tr
+                key={user.id}
+                className="border-b last:border-b-0 text-sm text-text"
+              >
+                <td className="py-4 pr-2 flex items-center">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-8 h-8 rounded-full object-cover mr-3"
+                      />
+                    ) : (
+                  <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
+                    {getInitials(user.name)}
+                  </div>
+                    )}
+                  <div>
+                    <p className="font-medium">{user.name}</p>
+                    <p className="text-gray-500 text-xs">{user.email}</p>
+                  </div>
+                </td>
+                <td className="py-4 px-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      user.user_role === "STUDENT"
+                        ? "bg-blue-100 text-blue-800"
                           : ["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role)
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
                       {["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role) 
                         ? "FACULTY/STAFF" 
                         : user.user_role}
-                    </span>
-                  </td>
-                  <td className="py-4 px-2">
-                    <span
+                  </span>
+                </td>
+                <td className="py-4 px-2">
+                  <span
                       className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium ${
-                        user.status === "active"
-                          ? "bg-green-100 text-green-800"
+                      user.status === "active"
+                        ? "bg-green-100 text-green-800"
                           : user.status === "idle"
                           ? "bg-yellow-100 text-yellow-800"
-                          : user.status === "inactive"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-200 text-gray-800"
-                      }`}
+                        : user.status === "inactive"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-gray-200 text-gray-800"
+                    }`}
+                  >
+                    {user.status}
+                  </span>
+                </td>
+                <td className="py-4 px-2">{user.bookings}</td>
+                <td className="py-4 px-2 text-gray-500">{user.last_active}</td>
+                <td className="py-4 pl-2 flex items-center space-x-2">
+                  {/* Action Icons */}
+                    <button 
+                      className="text-blue-600 hover:text-blue-800"
+                      onClick={() => handleViewUser(user.id)}
                     >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-2">{user.bookings}</td>
-                  <td className="py-4 px-2 text-gray-500">{user.last_active}</td>
-                  <td className="py-4 pl-2 flex items-center space-x-2">
-                    {/* Action Icons */}
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <EyeIcon className="w-5 h-5" />
+                    <EyeIcon className="w-5 h-5" />
+                  </button>
+                  <button className="text-yellow-600 hover:text-yellow-800">
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                  {user.status === "active" ? (
+                    <button
+                      className="text-red-600 hover:text-red-800"
+                      title="Deactivate"
+                    >
+                      <XCircleIcon className="w-5 h-5" />
                     </button>
-                    <button className="text-yellow-600 hover:text-yellow-800">
-                      <PencilIcon className="w-5 h-5" />
+                  ) : (
+                    <button
+                      className="text-green-600 hover:text-green-800"
+                      title="Activate"
+                    >
+                      <CheckCircleIcon className="w-5 h-5" />
                     </button>
-                    {user.status === "active" ? (
-                      <button
-                        className="text-red-600 hover:text-red-800"
-                        title="Deactivate"
-                      >
-                        <XCircleIcon className="w-5 h-5" />
-                      </button>
-                    ) : (
-                      <button
-                        className="text-green-600 hover:text-green-800"
-                        title="Activate"
-                      >
-                        <CheckCircleIcon className="w-5 h-5" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                  )}
+                </td>
+              </tr>
               ))
             )}
           </tbody>
@@ -786,6 +919,15 @@ const UserManagementPage = () => {
           Next
         </button>
       </div>
+
+      <ViewUserDetails 
+        user={selectedUser}
+        isOpen={isViewDetailsOpen}
+        onClose={() => {
+          setIsViewDetailsOpen(false);
+          setSelectedUser(null);
+        }}
+      />
     </div>
   );
 };
