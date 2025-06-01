@@ -12,21 +12,21 @@ import { supabase } from "@/lib/supabaseClient";
 // Define a type for booking data
 interface Booking {
   id: string;
-  booking_id: string;
-  user_id: string; // Assuming a user ID link
-  user_name: string;
-  user_email: string; // To display user info like in the screenshot
-  user_type: string; // To display user type like in the screenshot
-  date: string;
-  time_slot: string;
-  status: "confirmed" | "pending" | "cancelled" | "completed" | "waitlisted";
-  ticket_id: string | null; // Ticket ID can be null for waitlisted or pending
-  users?: {
-    // Add optional users property
-    user_name: string;
-    user_email: string;
-    user_type: string;
-  } | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  session_start_time: string;
+  session_end_time: string;
+  status: string;
+  requested_trainer_assistance: boolean;
+  notes: string | null;
+  session_id: string;
+  user_ticket_id: string | null;
+  booking_time: string;
+  session_category: string;
+  session_date: string;
+  ticket_id: string | null;
+  session_occurrence_id: string;
 }
 
 const BookingManagementPage = () => {
@@ -92,34 +92,20 @@ const BookingManagementPage = () => {
   // ];
 
   useEffect(() => {
-    let isMounted = true; // Flag to track if the component is mounted
+    let isMounted = true;
 
     const fetchBookings = async () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("bookings")
-        .select("*, users(user_name, user_email, user_type)"); // Assuming a 'bookings' table and a 'users' table linked by user_id
+        .select("*");
 
       if (isMounted) {
         if (error) {
           console.error("Error fetching bookings:", error);
-          // Handle error state, maybe display an error message
           setBookings([]);
         } else {
-          // Map the fetched data to the Booking interface
-          const fetchedBookings: Booking[] =
-            data?.map((item: Booking) => ({
-              id: item.id,
-              booking_id: item.booking_id,
-              user_id: item.user_id,
-              user_name: item.users?.user_name || "", // Use optional chaining and provide a default empty string
-              user_email: item.users?.user_email || "", // Use optional chaining and provide a default empty string
-              user_type: item.users?.user_type || "", // Use optional chaining and provide a default empty string
-              date: item.date,
-              time_slot: item.time_slot,
-              status: item.status,
-              ticket_id: item.ticket_id,
-            })) || [];
+          const fetchedBookings: Booking[] = data || [];
           setBookings(fetchedBookings);
         }
         setLoading(false);
@@ -128,20 +114,10 @@ const BookingManagementPage = () => {
 
     fetchBookings();
 
-    // Cleanup function to set isMounted to false when the component unmounts
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array means this effect runs once on mount
-
-  // Helper function to get initials for avatar placeholder
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
+  }, []);
 
   if (loading) {
     return <div className="p-6 text-center text-text">Loading bookings...</div>;
@@ -225,20 +201,19 @@ const BookingManagementPage = () => {
                 key={booking.id}
                 className="border-b last:border-b-0 text-sm text-text"
               >
-                <td className="py-4 pr-2 font-medium">{booking.booking_id}</td>
+                <td className="py-4 pr-2 font-medium">{booking.id}</td>
                 <td className="py-4 px-2 flex items-center">
-                  {/* Placeholder Avatar with Initials */}
                   <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
-                    {getInitials(booking.user_name)}
+                    {booking.session_category.charAt(0)}
                   </div>
                   <div>
-                    <p className="font-medium">{booking.user_name}</p>
-                    <p className="text-gray-500 text-xs">{booking.user_type}</p>
+                    <p className="font-medium">{booking.session_category}</p>
+                    <p className="text-gray-500 text-xs">{booking.user_id}</p>
                   </div>
                 </td>
                 <td className="py-4 px-2">
-                  <p>{booking.date}</p>
-                  <p className="text-gray-500 text-xs">{booking.time_slot}</p>
+                  <p>{booking.session_date}</p>
+                  <p className="text-gray-500 text-xs">{`${booking.session_start_time} - ${booking.session_end_time}`}</p>
                 </td>
                 <td className="py-4 px-2">
                   <span
@@ -249,7 +224,7 @@ const BookingManagementPage = () => {
                         ? "bg-yellow-100 text-yellow-800"
                         : booking.status === "waitlisted"
                         ? "bg-blue-100 text-blue-800"
-                        : booking.status === "cancelled"
+                        : booking.status === "cancelled_by_user"
                         ? "bg-red-100 text-red-800"
                         : "bg-gray-200 text-gray-800"
                     }`}
