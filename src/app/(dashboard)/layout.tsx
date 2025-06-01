@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -21,6 +21,8 @@ const DashboardLayout = ({
 }>) => {
   const pathname = usePathname();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const navLinks = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
@@ -40,6 +42,49 @@ const DashboardLayout = ({
       router.push("/login");
     }
   };
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session && pathname !== "/login") {
+        router.push("/login");
+      }
+    };
+
+    checkAuth();
+  }, [router, pathname]);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setIsAuthenticated(false);
+        router.replace("/login");
+      } else {
+        setIsAuthenticated(true);
+      }
+      setIsLoading(false);
+    };
+    checkAuth();
+    // Only run on mount (not on every navigation)
+    // eslint-disable-next-line
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-text">
+        <span>Loading...</span>
+      </div>
+    );
+  }
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
