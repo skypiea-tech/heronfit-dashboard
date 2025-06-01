@@ -434,6 +434,23 @@ const getInitials = (firstName: string, lastName: string) => {
   return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
 };
 
+// Add this helper function after getInitials
+const normalizeUserRole = (role: string): "STUDENT" | "FACULTY/STAFF" | "PUBLIC" => {
+  const facultyStaffVariations = [
+    "FACULTY/STAFF",
+    "STAFF",
+    "FACULTY",
+    "STAFF/FACULTY",
+    "FACULTY_STAFF",
+    "STAFF_FACULTY",
+    "FACULTY-STAFF",
+    "STAFF-FACULTY"
+  ];
+  if (facultyStaffVariations.includes(role.toUpperCase())) return "FACULTY/STAFF";
+  if (role.toUpperCase() === "STUDENT") return "STUDENT";
+  return "PUBLIC";
+};
+
 // Add ViewUserDetails component
 const ViewUserDetails = ({ user, isOpen, onClose }: { user: UserDetails | null, isOpen: boolean, onClose: () => void }) => {
   if (!user) return null;
@@ -600,7 +617,7 @@ const ConfirmChangesModal = ({ open, onClose, onConfirm, changes }: { open: bool
           <ul className="space-y-2">
             {changes.map((change, idx) => (
               <li key={idx} className="text-sm text-gray-800">
-                <span className="font-medium text-gray-600">{change.field}:</span> <span className="text-red-600 line-through">{change.oldValue === '' ? <em>empty</em> : String(change.oldValue)}</span> <span className="mx-2">→</span> <span className="text-green-700 font-semibold">{change.newValue === '' ? <em>empty</em> : String(change.newValue)}</span>
+                <span className="font-medium text-gray-600">{change.field}:</span> <span className="text-red-600 line-through">{change.oldValue === '' ? <em>empty</em> : String(change.oldValue)}</span> <span className="mx-2">â†’</span> <span className="text-green-700 font-semibold">{change.newValue === '' ? <em>empty</em> : String(change.newValue)}</span>
               </li>
             ))}
           </ul>
@@ -811,10 +828,8 @@ const UserManagementPage = () => {
     }
 
     // Handle role filtering with flexible matching for FACULTY/STAFF
-    const matchesRole = !roleFilter || 
-      (roleFilter === "FACULTY/STAFF" 
-        ? ["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role)
-        : user.user_role === roleFilter);
+    const normalizedUserRole = normalizeUserRole(user.user_role);
+    const matchesRole = !roleFilter || normalizedUserRole === roleFilter;
 
     return matchesSearch && matchesStatus && matchesRole;
   });
@@ -1097,19 +1112,22 @@ const UserManagementPage = () => {
                   </div>
                 </td>
                 <td className="py-4 px-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      user.user_role === "STUDENT"
-                        ? "bg-blue-100 text-blue-800"
-                          : ["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role)
-                        ? "bg-purple-100 text-purple-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                      {["FACULTY/STAFF", "STAFF", "FACULTY", "STAFF/FACULTY"].includes(user.user_role) 
-                        ? "FACULTY/STAFF" 
-                        : user.user_role}
-                  </span>
+                  {(() => {
+                    const normalizedRole = normalizeUserRole(user.user_role);
+                    return (
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          normalizedRole === "STUDENT"
+                            ? "bg-blue-100 text-blue-800"
+                            : normalizedRole === "FACULTY/STAFF"
+                            ? "bg-purple-100 text-purple-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {normalizedRole}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="py-4 px-2">
                   <span

@@ -7,119 +7,147 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon } from "@heroicons/react/20/solid"; // For Live icon
-import { supabase } from "@/lib/supabaseClient";
-
-// Define types for data
-interface SessionSummary {
-  peakOccupancy: number;
-  averageOccupancy: number;
-  totalCheckIns: number;
-  currentUtilization: string; // Or number if calculated dynamically
-}
-
-interface TimeSlot {
-  id: string;
-  time: string;
-  current: number;
-  capacity: number;
-  status: "open" | "full";
-}
+import {
+  TimeSlot,
+  fetchTodayTimeSlots,
+  DEFAULT_MAXIMUM_CAPACITY,
+  dummySummary,
+  getCurrentGymOccupancy,
+} from "./models/SessionModel";
 
 const SessionManagementPage = () => {
-  const [currentOccupancy, setCurrentOccupancy] = useState(0);
-  const [maximumCapacity, setMaximumCapacity] = useState(0);
-  const [summaryData, setSummaryData] = useState<SessionSummary | null>(null);
+  const [maximumCapacity, setMaximumCapacity] = useState(DEFAULT_MAXIMUM_CAPACITY);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [displayDate, setDisplayDate] = useState<string>("");
+  const summaryData = dummySummary;
+  const [currentSlotInfo, setCurrentSlotInfo] = useState<{ occupancy: number; slot: TimeSlot | null } | null>(null);
+  const [editCapacityMode, setEditCapacityMode] = useState(false);
+  const [pendingCapacity, setPendingCapacity] = useState<number>(maximumCapacity);
+
+  // New state for editable occupancy, hints, and modal
+  const [currentOccupancy, setCurrentOccupancy] = useState<number>(0);
+  const [hint, setHint] = useState<string>("");
+  const [showBookedModal, setShowBookedModal] = useState(false);
+  const [modalValue, setModalValue] = useState<number>(0);
+  const [showMaxCapModal, setShowMaxCapModal] = useState(false);
 
   useEffect(() => {
-    const fetchSessionData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const dd = String(today.getDate()).padStart(2, "0");
-        const todayStr = `${yyyy}-${mm}-${dd}`;        const { data: occurrences, error: occErr } = await supabase
-          .from("session_occurrences")
-          .select(
-            "id, start_time, end_time, booked_slots, attended_count, override_capacity, session_id, sessions(name)"
-          )
-          .eq("date", todayStr)
-          .order("start_time", { ascending: true });
-        if (occErr) throw occErr;
-        
-        const maxCapacityPerSlot = 15; // Hardcoded capacity per slot
-        let peak = 0,
-          total = 0,
-          count = 0,
-          checkIns = 0;
-        
-        const slots = (occurrences || []).map((occ) => {
-          const current = (occ.booked_slots || 0) + (occ.attended_count || 0) + (occ.override_capacity || 0);
-          const capacity = maxCapacityPerSlot;
-          let status: "open" | "full" = current >= capacity ? "full" : "open";
-          const start = occ.start_time?.slice(0, 5) || "";
-          const end = occ.end_time?.slice(0, 5) || "";
-          
-          // Update summary calculations
-          if (current > peak) peak = current;
-          total += current;
-          count++;
-          checkIns += (occ.attended_count || 0);
-          
-          return {
-            id: occ.id,
-            time: `${start} - ${end}`,
-            current,
-            capacity,
-            status,
-          };
-        });
-        
+    setLoading(true);
+    setError(null);
+    fetchTodayTimeSlots()
+      .then((slots) => {
         setTimeSlots(slots);
-        setCurrentOccupancy(slots.reduce((sum, s) => sum + s.current, 0));
-        setMaximumCapacity(maxCapacityPerSlot * slots.length);
-        setSummaryData({
-          peakOccupancy: peak,
-          averageOccupancy: count ? Math.round(total / count) : 0,
-          totalCheckIns: checkIns,
-          currentUtilization:
-            slots.length && total
-              ? `${Math.round((total / (maxCapacityPerSlot * slots.length)) * 100)}%`
-              : "0%",
-        });
-      } catch (err) {
-        let msg = "Failed to load session data";
-        if (
-          err &&
-          typeof err === "object" &&
-          "message" in err &&
-          typeof err.message === "string"
-        ) {
-          msg = err.message;
+        // Determine the date being shown
+        type SlotWithDate = { date?: string };
+        const slotsWithDate = slots as SlotWithDate[];
+        if (slotsWithDate.length > 0 && slotsWithDate[0].date) {
+          const dateStr = slotsWithDate[0].date!;
+          const dateObj = new Date(dateStr);
+          const formatted = dateObj.toLocaleDateString(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          setDisplayDate(formatted);
+        } else {
+          // fallback to today
+          const today = new Date();
+          const formatted = today.toLocaleDateString(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          });
+          setDisplayDate(formatted);
         }
-        setError(msg);
-      } finally {
+        // Set current slot info
+        const slotInfo = getCurrentGymOccupancy(slots);
+        setCurrentSlotInfo(slotInfo);
+        setCurrentOccupancy(slotInfo.occupancy ?? 0);
         setLoading(false);
-      }
-    };
-    fetchSessionData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+      })
+      .catch(() => {
+        setError("Failed to load session data.");
+        setLoading(false);
+      });
+    // TODO: Implement summaryData fetching if needed
+  }, []);
 
-  const occupancyPercentage = maximumCapacity
-    ? (currentOccupancy / maximumCapacity) * 100
-    : 0;
+  // Use currentSlotInfo for occupancy
+  const occupancyPercentage = (currentOccupancy / maximumCapacity) * 100;
+  const currentSlotTime = currentSlotInfo?.slot?.time;
+  const slotBooked = currentSlotInfo?.slot?.current ?? 0;
+
+  // Handlers for plus/minus
+  const handleIncrement = () => {
+    if (currentOccupancy >= maximumCapacity) {
+      setHint("Cannot exceed gym maximum capacity.");
+      return;
+    }
+    setCurrentOccupancy((prev) => prev + 1);
+    setHint("");
+  };
+
+  const handleDecrement = () => {
+    if (currentOccupancy <= 0) {
+      setHint("Cannot go below zero.");
+      return;
+    }
+    if (currentOccupancy > slotBooked && currentOccupancy - 1 < slotBooked) {
+      setModalValue(slotBooked);
+      setShowBookedModal(true);
+      return;
+    }
+    setCurrentOccupancy((prev) => prev - 1);
+    setHint("");
+  };
+
+  // Modal confirm handler
+  const handleModalConfirm = () => {
+    setCurrentOccupancy(modalValue);
+    setShowBookedModal(false);
+    setHint("");
+  };
+
+  // Modal cancel handler
+  const handleModalCancel = () => {
+    setShowBookedModal(false);
+  };
+
+  // Handler for updating capacity
+  const handleUpdateCapacity = () => {
+    if (pendingCapacity < currentOccupancy) {
+      setShowMaxCapModal(true);
+      return;
+    }
+    setMaximumCapacity(pendingCapacity);
+    setEditCapacityMode(false);
+  };
+
+  const handleForceUpdateCapacity = () => {
+    setMaximumCapacity(pendingCapacity);
+    setCurrentOccupancy(pendingCapacity);
+    setEditCapacityMode(false);
+    setShowMaxCapModal(false);
+  };
+
+  const handleCancelUpdateCapacity = () => {
+    setShowMaxCapModal(false);
+  };
 
   if (loading) {
     return (
       <div className="p-6 text-center text-text">Loading session data...</div>
     );
   }
+
   if (error) {
-    return <div className="p-6 text-center text-red-600">{error}</div>;
+    return (
+      <div className="p-6 text-center text-red-600">{error}</div>
+    );
   }
 
   return (
@@ -145,10 +173,13 @@ const SessionManagementPage = () => {
               /{maximumCapacity}
             </span>
           </div>
-          <p className="text-gray-600 mb-4">People currently in gym</p>
+          <p className="text-gray-600 mb-2">People currently in gym</p>
+          {currentSlotTime && (
+            <p className="text-xs text-gray-500 mb-4">Current slot: {currentSlotTime}</p>
+          )}
 
           {/* Occupancy Level Bar */}
-          <div className="mb-4">
+          <div className="mb-2">
             <div className="flex justify-between text-sm text-gray-600 mb-1">
               <span>Occupancy Level</span>
               <span>{occupancyPercentage.toFixed(0)}%</span>
@@ -162,13 +193,16 @@ const SessionManagementPage = () => {
               ></div>
             </div>
           </div>
+          {hint && (
+            <div className="text-xs text-red-500 mb-2">{hint}</div>
+          )}
 
           {/* Manual Check-in/out */}
           <div className="flex items-center justify-center space-x-6 text-gray-600 mt-6">
             <button
               className="flex items-center space-x-2 text-red-600 hover:text-red-800"
               title="Manual Check-out"
-              // onClick={() => handleManualCheckInOut(-1)}
+              onClick={handleDecrement}
             >
               <MinusCircleIcon className="w-8 h-8" />
             </button>
@@ -176,11 +210,52 @@ const SessionManagementPage = () => {
             <button
               className="flex items-center space-x-2 text-green-600 hover:text-green-800"
               title="Manual Check-in"
-              // onClick={() => handleManualCheckInOut(1)}
+              onClick={handleIncrement}
             >
               <PlusCircleIcon className="w-8 h-8" />
             </button>
           </div>
+
+          {/* Booked modal */}
+          {showBookedModal && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg w-80">
+                <h3 className="text-lg font-header mb-2">Decrease below booked sessions?</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  You are reducing below the number of booked sessions ({slotBooked}).<br />
+                  How many should you decrease to?
+                </p>
+                <div className="flex items-center justify-center mb-4">
+                  <button
+                    className="px-2 py-1 text-lg border rounded-l bg-gray-100"
+                    onClick={() => setModalValue(Math.max(0, modalValue - 1))}
+                  >-</button>
+                  <input
+                    type="number"
+                    min={0}
+                    max={slotBooked}
+                    value={modalValue}
+                    onChange={e => setModalValue(Math.max(0, Math.min(slotBooked, Number(e.target.value))))}
+                    className="w-16 text-center border-t border-b border-gray-300 text-lg"
+                  />
+                  <button
+                    className="px-2 py-1 text-lg border rounded-r bg-gray-100"
+                    onClick={() => setModalValue(Math.min(slotBooked, modalValue + 1))}
+                  >+</button>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    onClick={handleModalCancel}
+                  >Cancel</button>
+                  <button
+                    className="px-3 py-1 rounded bg-primary text-white hover:bg-accent"
+                    onClick={handleModalConfirm}
+                  >Confirm</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Max Capacity and Today's Summary */}
@@ -188,13 +263,63 @@ const SessionManagementPage = () => {
           {/* Maximum Capacity */}
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-header mb-4">Maximum Capacity</h2>
-            <p className="text-4xl font-bold text-text mb-4">
-              {maximumCapacity}
-            </p>
-            <button className="w-full px-4 py-2 border border-gray-300 rounded-md text-text hover:bg-gray-100 transition-colors">
-              Edit Capacity
-            </button>
+            {editCapacityMode ? (
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={pendingCapacity}
+                  onChange={e => setPendingCapacity(Number(e.target.value))}
+                  className="w-full text-4xl font-bold text-text mb-4 border border-gray-300 rounded-md px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <button
+                  className="w-full px-4 py-2 mt-2 border border-primary bg-primary text-white rounded-md hover:bg-accent transition-colors"
+                  onClick={handleUpdateCapacity}
+                >
+                  Update Capacity
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl font-bold text-text mb-4">
+                  {maximumCapacity}
+                </p>
+                <button
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md text-text hover:bg-gray-100 transition-colors"
+                  onClick={() => {
+                    setPendingCapacity(maximumCapacity);
+                    setEditCapacityMode(true);
+                  }}
+                >
+                  Edit Capacity
+                </button>
+              </>
+            )}
           </div>
+
+          {/* Max Capacity Modal */}
+          {showMaxCapModal && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                <h3 className="text-lg font-header mb-2">Current occupancy exceeds new maximum</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  Current gym occupancy (<b>{currentOccupancy}</b>) exceeds the new maximum capacity (<b>{pendingCapacity}</b>).<br />
+                  What would you like to do?
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    onClick={handleCancelUpdateCapacity}
+                  >Cancel</button>
+                  <button
+                    className="px-3 py-1 rounded bg-primary text-white hover:bg-accent"
+                    onClick={handleForceUpdateCapacity}
+                  >Force Update</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Today's Summary */}
           {summaryData && (
@@ -227,7 +352,12 @@ const SessionManagementPage = () => {
 
       {/* Today's Time Slots */}
       <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-xl font-header mb-4">Today&apos;s Time Slots</h2>
+        <div className="flex items-center mb-4 gap-4">
+          <h2 className="text-xl font-header">Today&apos;s Time Slots</h2>
+          {displayDate && (
+            <span className="text-sm text-gray-500 font-medium">{displayDate}</span>
+          )}
+        </div>
         <p className="text-body text-gray-600 mb-6">
           Monitor capacity for each time slot.
         </p>
