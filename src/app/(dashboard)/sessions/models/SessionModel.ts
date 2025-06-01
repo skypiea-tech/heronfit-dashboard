@@ -102,6 +102,7 @@ export const DEFAULT_CURRENT_OCCUPANCY = 23;
 
 // Supabase client (assume env vars are set)
 import { supabase } from '@/lib/supabaseClient';
+import { logHourlySessionAnalytics } from './AnalyticsLogger';
 
 // Helper: format time range
 function formatTimeRange(start: string, end: string) {
@@ -243,4 +244,30 @@ export function getCurrentGymOccupancy(timeSlots: TimeSlot[], now: Date = new Da
     occupancy: currentSlot.current,
     slot: currentSlot,
   };
+}
+
+/**
+ * Debug: Log analytics for all of today's time slots (calls logHourlySessionAnalytics for each slot)
+ */
+export async function debugLogAnalyticsForTodaySlots() {
+  const slots = await fetchTodayTimeSlots();
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0, 10);
+  for (const slot of slots) {
+    // Parse start and end time from slot.time (e.g., '07:00 - 08:00')
+    const [start, end] = slot.time.split(' - ');
+    // Use slot.current as hourly_occupancy, and mock the rest for now
+    await logHourlySessionAnalytics({
+      date: dateStr,
+      start_time_of_day: start,
+      end_time_of_day: end,
+      hourly_occupancy: slot.current,
+      daily_occupancy: slot.current, // For debug, use current as daily
+      booked_count: slot.current, // For debug, use current as booked
+      no_show_count: 0, // Mock
+      cancelled_count: 0, // Mock
+      waitlist_count: 0, // Mock
+      peak_time: start, // Mock as start time
+    });
+  }
 } 

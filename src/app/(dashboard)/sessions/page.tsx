@@ -13,7 +13,10 @@ import {
   DEFAULT_MAXIMUM_CAPACITY,
   dummySummary,
   getCurrentGymOccupancy,
+  debugLogAnalyticsForTodaySlots,
 } from "./models/SessionModel";
+
+const SHOW_DEBUG_ANALYTICS_BUTTON = false; // Set to false to hide debug analytics button
 
 const SessionManagementPage = () => {
   const [maximumCapacity, setMaximumCapacity] = useState(DEFAULT_MAXIMUM_CAPACITY);
@@ -32,6 +35,7 @@ const SessionManagementPage = () => {
   const [showBookedModal, setShowBookedModal] = useState(false);
   const [modalValue, setModalValue] = useState<number>(0);
   const [showMaxCapModal, setShowMaxCapModal] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -153,6 +157,25 @@ const SessionManagementPage = () => {
   return (
     <div className="p-6 bg-background text-text min-h-screen">
       <h1 className="text-3xl font-header mb-2">Session Management</h1>
+      {SHOW_DEBUG_ANALYTICS_BUTTON && (
+        <button
+          className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={debugLoading}
+          onClick={async () => {
+            setDebugLoading(true);
+            try {
+              await debugLogAnalyticsForTodaySlots();
+              alert('Analytics log sent for all slots!');
+            } catch (e) {
+              alert('Failed to log analytics: ' + (e instanceof Error ? e.message : String(e)));
+            } finally {
+              setDebugLoading(false);
+            }
+          }}
+        >
+          {debugLoading ? 'Logging Analytics...' : 'Debug: Log Analytics for All Slots'}
+        </button>
+      )}
       <p className="text-body text-lg mb-6">
         Monitor and control real-time gym occupancy and session capacity.
       </p>
@@ -362,41 +385,43 @@ const SessionManagementPage = () => {
           Monitor capacity for each time slot.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {timeSlots.map((slot) => (
-            <div
-              key={slot.id}
-              className="border border-gray-200 rounded-lg p-4"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium text-text">{slot.time}</h3>
-                <ClockIcon className="w-5 h-5 text-gray-500" />
-              </div>
-              <div className="flex items-end mb-2">
-                <p className="text-2xl font-bold text-text">{slot.current}</p>
-                <span className="text-gray-500">/{slot.capacity}</span>
-              </div>
-              {/* Time Slot Occupancy Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-                <div
-                  className={`h-1.5 rounded-full ${
-                    slot.current / slot.capacity > 0.9
-                      ? "bg-red-500"
-                      : "bg-green-500"
-                  }`}
-                  style={{ width: `${(slot.current / slot.capacity) * 100}%` }}
-                ></div>
-              </div>
-              <span
-                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  slot.status === "full"
-                    ? "bg-red-100 text-red-800"
-                    : "bg-green-100 text-green-800"
-                }`}
+          {[...timeSlots]
+            .sort((a, b) => a.time.localeCompare(b.time))
+            .map((slot) => (
+              <div
+                key={slot.id}
+                className="border border-gray-200 rounded-lg p-4"
               >
-                {slot.status}
-              </span>
-            </div>
-          ))}
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-medium text-text">{slot.time}</h3>
+                  <ClockIcon className="w-5 h-5 text-gray-500" />
+                </div>
+                <div className="flex items-end mb-2">
+                  <p className="text-2xl font-bold text-text">{slot.current}</p>
+                  <span className="text-gray-500">/{slot.capacity}</span>
+                </div>
+                {/* Time Slot Occupancy Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-2">
+                  <div
+                    className={`h-1.5 rounded-full ${
+                      slot.current / slot.capacity > 0.9
+                        ? "bg-red-500"
+                        : "bg-green-500"
+                    }`}
+                    style={{ width: `${(slot.current / slot.capacity) * 100}%` }}
+                  ></div>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    slot.status === "full"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {slot.status}
+                </span>
+              </div>
+            ))}
         </div>
       </div>
     </div>
