@@ -297,8 +297,7 @@ const DashboardPage = () => {
                         {booking.session_date} • {booking.session_start_time}
                       </p>
                     </div>
-                  </div>
-                  <span className={`text-sm font-semibold ${
+                  </div>                  <span className={`text-sm font-semibold ${
                     booking.status === "confirmed"
                       ? "text-green-600"
                       : booking.status === "pending"
@@ -307,12 +306,16 @@ const DashboardPage = () => {
                       ? "text-blue-600"
                       : booking.status === "cancelled_by_user"
                       ? "text-red-600"
+                      : booking.status === "cancelled_by_admin"
+                      ? "text-red-700"
                       : "text-gray-600"
                   }`}>
                     {booking.status === "confirmed"
                       ? "Confirmed"
                       : booking.status === "cancelled_by_user"
-                      ? "Cancelled"
+                      ? "Cancelled by User"
+                      : booking.status === "cancelled_by_admin"
+                      ? "Cancelled by Admin"
                       : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                   </span>
                 </div>
