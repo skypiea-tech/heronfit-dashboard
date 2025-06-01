@@ -44,36 +44,43 @@ const DashboardLayout = ({
   };
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session && pathname !== "/login") {
-        router.push("/login");
-      }
-    };
-
-    checkAuth();
-  }, [router, pathname]);
-
-  useEffect(() => {
+    setIsLoading(true);
+    // Remove dummy login logic entirely for production security
     const checkAuth = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
         setIsAuthenticated(false);
-        router.replace("/login");
+        setIsLoading(false);
+        if (!pathname.startsWith("/login")) {
+          router.replace("/login");
+        }
       } else {
         setIsAuthenticated(true);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     checkAuth();
-    // Only run on mount (not on every navigation)
-    // eslint-disable-next-line
-  }, []);
+    // Listen for auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          setIsAuthenticated(false);
+          setIsLoading(false);
+          if (!pathname.startsWith("/login")) {
+            router.replace("/login");
+          }
+        } else {
+          setIsAuthenticated(true);
+          setIsLoading(false);
+        }
+      }
+    );
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, [router, pathname]);
 
   if (isLoading) {
     return (

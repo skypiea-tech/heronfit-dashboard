@@ -1,8 +1,136 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 const DashboardPage = () => {
+  const [stats, setStats] = React.useState({
+    activeUsers: 0,
+    bookingsToday: 0,
+    currentOccupancy: 0,
+    maxCapacity: 0,
+    pendingApprovals: 0,
+    percentActiveChange: 0,
+    percentBookingsChange: 0,
+    percentOccupancyChange: 0,
+    percentPendingChange: 0,
+  });  const [recentBookings, setRecentBookings] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const fetchDashboardStats = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        // Active users (users who have bookings today)
+        const { data: activeUsersData, error: activeUsersErr } = await supabase
+          .from("bookings")
+          .select("user_id", { count: "exact", head: true })
+          .eq("session_date", todayStr)
+          .eq("status", "confirmed");
+        if (activeUsersErr) throw activeUsersErr;
+
+        // Bookings today
+        const { count: bookingsToday, error: bookingsErr } = await supabase
+          .from("bookings")
+          .select("*", { count: "exact", head: true })
+          .eq("session_date", todayStr);
+        if (bookingsErr) throw bookingsErr;
+
+        // Current occupancy (sum of booked_slots, attended_count, and override_capacity for today's session_occurrences)
+        const { data: occs, error: occErr } = await supabase
+          .from("session_occurrences")
+          .select("booked_slots, attended_count, override_capacity")
+          .eq("date", todayStr);
+        if (occErr) throw occErr;
+        const currentOccupancy = (occs || []).reduce(
+          (sum, o) => sum + (o.booked_slots || 0) + (o.attended_count || 0) + (o.override_capacity || 0),
+          0
+        );
+        const maxCapacity = 15;
+
+        // Pending approvals (bookings with status 'pending')
+        const { count: pendingApprovals, error: pendingErr } = await supabase
+          .from("bookings")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending");
+        if (pendingErr) throw pendingErr;        // Recent bookings (last 5) with user names
+        const { data: recent, error: recentErr } = await supabase
+          .from("bookings")
+          .select(
+            "id, user_id, status, session_start_time, session_end_time, session_date, ticket_id"
+          )
+          .order("created_at", { ascending: false })
+          .limit(5);
+        if (recentErr) throw recentErr;
+
+        // Fetch user information separately for the recent bookings
+        let recentWithUsers = recent || [];
+        if (recent && recent.length > 0) {
+          const userIds = recent.map(booking => booking.user_id);
+          const { data: usersData, error: usersErr } = await supabase
+            .from("users")
+            .select("id, first_name, last_name")
+            .in("id", userIds);
+          
+          if (usersErr) {
+            console.error("Error fetching user data:", usersErr);
+          } else {
+            // Create a map of user_id to user data
+            const usersMap = new Map(usersData?.map(user => [user.id, user]) || []);
+            
+            // Add user data to recent bookings
+            recentWithUsers = recent.map(booking => ({
+              ...booking,
+              users: usersMap.get(booking.user_id) || null
+            }));
+          }
+        }
+
+        setStats({
+          activeUsers: activeUsersData?.length || 0,
+          bookingsToday: bookingsToday || 0,
+          currentOccupancy,
+          maxCapacity,
+          pendingApprovals: pendingApprovals || 0,
+          percentActiveChange: 0, // TODO: implement trend
+          percentBookingsChange: 0,
+          percentOccupancyChange: 0,
+          percentPendingChange: 0,
+        });
+        setRecentBookings(recentWithUsers);
+      } catch (err) {
+        let msg = "Failed to load dashboard stats";
+        if (
+          err &&
+          typeof err === "object" &&
+          "message" in err &&
+          typeof err.message === "string"
+        ) {
+          msg = err.message;
+        }
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-center text-text">Loading dashboard...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-center text-red-600">{error}</div>;
+  }
+
   return (
     <div className="">
       <h1 className="text-3xl font-header mb-2">Dashboard Overview</h1>
@@ -37,7 +165,7 @@ const DashboardPage = () => {
               </svg>
             </div>
           </div>
-          <p className="text-3xl font-bold text-text">1,247</p>
+          <p className="text-3xl font-bold text-text">{stats.activeUsers}</p>
           <p className="text-sm text-gray-500">+12% from yesterday</p>
         </div>
 
@@ -66,7 +194,7 @@ const DashboardPage = () => {
               </svg>
             </div>
           </div>
-          <p className="text-3xl font-bold text-text">89</p>
+          <p className="text-3xl font-bold text-text">{stats.bookingsToday}</p>
           <p className="text-sm text-gray-500">+5% from yesterday</p>
         </div>
 
@@ -100,7 +228,9 @@ const DashboardPage = () => {
               </svg>
             </div>
           </div>
-          <p className="text-3xl font-bold text-text">23/50</p>
+          <p className="text-3xl font-bold text-text">
+            {stats.currentOccupancy} / {stats.maxCapacity}
+          </p>
           <p className="text-sm text-gray-500">46% from yesterday</p>
         </div>
 
@@ -129,7 +259,9 @@ const DashboardPage = () => {
               </svg>
             </div>
           </div>
-          <p className="text-3xl font-bold text-text">7</p>
+          <p className="text-3xl font-bold text-text">
+            {stats.pendingApprovals}
+          </p>
           <p className="text-sm text-red-500">-2 from yesterday</p>
         </div>
       </div>
@@ -143,73 +275,49 @@ const DashboardPage = () => {
           </h2>
           {/* Placeholder list of bookings */}
           <div className="space-y-4">
-            {/* Example Booking Item */}
-            <div className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center">
-                {/* Placeholder Avatar */}
-                <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>
-                <div>
-                  <p className="font-medium text-text">John Silva</p>
-                  <p className="text-sm text-gray-500">Student • 09:00 AM</p>
-                </div>
+            {recentBookings.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">
+                No recent booking activity.
               </div>
-              <span className="text-sm font-semibold text-green-600">
-                confirmed
-              </span>
-            </div>
-            {/* More booking items would go here */}
-            <div className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center">
-                {/* Placeholder Avatar */}
-                <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>
-                <div>
-                  <p className="font-medium text-text">Maria Santos</p>
-                  <p className="text-sm text-gray-500">Faculty • 10:30 AM</p>
+            ) : (
+              recentBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
+                >
+                  <div className="flex items-center">
+                    {/* Placeholder Avatar */}
+                    <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>                    <div>
+                      <p className="font-medium text-text">
+                        {booking.users?.first_name && booking.users?.last_name 
+                          ? `${booking.users.first_name} ${booking.users.last_name}`
+                          : `User ${booking.user_id}`}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {booking.session_date} • {booking.session_start_time}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-semibold ${
+                    booking.status === "confirmed"
+                      ? "text-green-600"
+                      : booking.status === "pending"
+                      ? "text-yellow-600"
+                      : booking.status === "waitlisted"
+                      ? "text-blue-600"
+                      : booking.status === "cancelled_by_user"
+                      ? "text-red-600"
+                      : "text-gray-600"
+                  }`}>
+                    {booking.status === "confirmed"
+                      ? "Confirmed"
+                      : booking.status === "cancelled_by_user"
+                      ? "Cancelled"
+                      : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                  </span>
                 </div>
-              </div>
-              <span className="text-sm font-semibold text-yellow-600">
-                pending
-              </span>
-            </div>
-            <div className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center">
-                {/* Placeholder Avatar */}
-                <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>
-                <div>
-                  <p className="font-medium text-text">Carlos Lopez</p>
-                  <p className="text-sm text-gray-500">Staff • 02:00 PM</p>
-                </div>
-              </div>
-              <span className="text-sm font-semibold text-green-600">
-                confirmed
-              </span>
-            </div>
-            <div className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center">
-                {/* Placeholder Avatar */}
-                <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>
-                <div>
-                  <p className="font-medium text-text">Ana Rodriguez</p>
-                  <p className="text-sm text-gray-500">Student • 03:30 PM</p>
-                </div>
-              </div>
-              <span className="text-sm font-semibold text-blue-600">
-                waitlisted
-              </span>
-            </div>
-            <div className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0">
-              <div className="flex items-center">
-                {/* Placeholder Avatar */}
-                <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>
-                <div>
-                  <p className="font-medium text-text">Miguel Torres</p>
-                  <p className="text-sm text-gray-500">Student • 04:00 PM</p>
-                </div>
-              </div>
-              <span className="text-sm font-semibold text-green-600">
-                confirmed
-              </span>
-            </div>
+              ))
+            )}
           </div>
         </div>
 
