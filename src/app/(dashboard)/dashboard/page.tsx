@@ -77,7 +77,7 @@ const DashboardPage = () => {
           const userIds = recent.map(booking => booking.user_id);
           const { data: usersData, error: usersErr } = await supabase
             .from("users")
-            .select("id, first_name, last_name")
+            .select("id, first_name, last_name, avatar")
             .in("id", userIds);
           
           if (usersErr) {
@@ -123,6 +123,40 @@ const DashboardPage = () => {
     };
     fetchDashboardStats();
   }, []);
+
+  // Helper to format date as 'Month Day, Year'
+  function formatSessionDate(dateStr: string) {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+  // Helper to format time in 12-hour format
+  function formatTime12h(timeStr: string) {
+    if (!timeStr) return "";
+    const [h, m] = timeStr.split(":");
+    const hour = parseInt(h, 10);
+    const minute = parseInt(m, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+  }
+  // Helper to format time range in 12-hour format
+  function formatTimeRange12h(start: string, end: string) {
+    if (!start || !end) return "";
+    const to12h = (t: string) => {
+      const [h, m] = t.split(":");
+      const hour = parseInt(h, 10);
+      const minute = parseInt(m, 10);
+      const ampm = hour >= 12 ? "PM" : "AM";
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+    };
+    return `${to12h(start)} - ${to12h(end)}`;
+  }
 
   if (loading) {
     return <div className="p-6 text-center text-text">Loading dashboard...</div>;
@@ -286,18 +320,30 @@ const DashboardPage = () => {
                   className="flex items-center justify-between border-b pb-4 last:border-b-0 last:pb-0"
                 >
                   <div className="flex items-center">
-                    {/* Placeholder Avatar */}
-                    <div className="w-10 h-10 bg-gray-200 rounded-full mr-4"></div>                    <div>
+                    {/* Avatar or initials */}
+                    <div className="w-10 h-10 bg-gray-200 rounded-full mr-4 flex items-center justify-center text-gray-600 font-medium text-base overflow-hidden">
+                      {booking.users?.avatar ? (
+                        <img src={booking.users.avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+                      ) : (
+                        <span>
+                          {booking.users?.first_name || booking.users?.last_name
+                            ? `${booking.users?.first_name?.[0] || ''}${booking.users?.last_name?.[0] || ''}`.toUpperCase()
+                            : <span className="text-xs">No Avatar</span>}
+                        </span>
+                      )}
+                    </div>
+                    <div>
                       <p className="font-medium text-text">
-                        {booking.users?.first_name && booking.users?.last_name 
+                        {booking.users?.first_name && booking.users?.last_name
                           ? `${booking.users.first_name} ${booking.users.last_name}`
                           : `User ${booking.user_id}`}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {booking.session_date} • {booking.session_start_time}
+                        {formatSessionDate(booking.session_date)} • {formatTimeRange12h(booking.session_start_time, booking.session_end_time)}
                       </p>
                     </div>
-                  </div>                  <span className={`text-sm font-semibold ${
+                  </div>
+                  <span className={`text-sm font-semibold ${
                     booking.status === "confirmed"
                       ? "text-green-600"
                       : booking.status === "pending"
