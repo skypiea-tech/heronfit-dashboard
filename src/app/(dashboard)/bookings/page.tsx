@@ -30,7 +30,7 @@ interface Booking {
 }
 
 const BookingManagementPage = () => {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Dummy data for summary counts and bookings
@@ -96,17 +96,37 @@ const BookingManagementPage = () => {
 
     const fetchBookings = async () => {
       setLoading(true);
+      // Fetch all bookings
       const { data, error } = await supabase
         .from("bookings")
-        .select("*");
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (isMounted) {
         if (error) {
           console.error("Error fetching bookings:", error);
           setBookings([]);
         } else {
-          const fetchedBookings: Booking[] = data || [];
-          setBookings(fetchedBookings);
+          const fetchedBookings: any[] = data || [];
+          // Get unique user_ids
+          const userIds = Array.from(new Set(fetchedBookings.map((b) => b.user_id)));
+          // Fetch user details
+          let usersMap: Record<string, any> = {};
+          if (userIds.length > 0) {
+            const { data: usersData, error: usersErr } = await supabase
+              .from("users")
+              .select("id, first_name, last_name, email, user_role, avatar")
+              .in("id", userIds);
+            if (!usersErr && usersData) {
+              usersMap = Object.fromEntries(usersData.map((u) => [u.id, u]));
+            }
+          }
+          // Merge user info into bookings
+          const bookingsWithUsers = fetchedBookings.map((b) => ({
+            ...b,
+            user: usersMap[b.user_id] || null,
+          }));
+          setBookings(bookingsWithUsers);
         }
         setLoading(false);
       }
@@ -128,10 +148,8 @@ const BookingManagementPage = () => {
       <h1 className="text-3xl font-header mb-2">Booking Management</h1>
       <p className="text-body text-lg mb-6">
         Monitor and manage gym session bookings.
-      </p>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      </p>      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-sm text-gray-600">Total Bookings</p>
           <p className="text-2xl font-bold text-text">{bookings.length}</p>
@@ -146,6 +164,12 @@ const BookingManagementPage = () => {
           <p className="text-sm text-gray-600">Pending</p>
           <p className="text-2xl font-bold text-yellow-600">
             {bookings.filter((b) => b.status === "pending").length}
+          </p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <p className="text-sm text-gray-600">Cancelled</p>
+          <p className="text-2xl font-bold text-red-600">
+            {bookings.filter((b) => b.status === "cancelled_by_user" || b.status === "cancelled_by_admin").length}
           </p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
@@ -170,12 +194,12 @@ const BookingManagementPage = () => {
           <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
             <option value="">Today</option>
             {/* Add other date options if needed */}
-          </select>
-          <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
+          </select>          <select className="border border-gray-300 rounded-md py-2 px-4 focus:outline-none focus:ring-primary focus:border-primary">
             <option value="">All Status</option>
             <option value="confirmed">Confirmed</option>
             <option value="pending">Pending</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="cancelled_by_user">Cancelled by User</option>
+            <option value="cancelled_by_admin">Cancelled by Admin</option>
             <option value="completed">Completed</option>
             <option value="waitlisted">Waitlisted</option>
           </select>
@@ -204,11 +228,19 @@ const BookingManagementPage = () => {
                 <td className="py-4 pr-2 font-medium">{booking.id}</td>
                 <td className="py-4 px-2 flex items-center">
                   <div className="w-8 h-8 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-xs">
-                    {booking.session_category.charAt(0)}
+                    {booking.user?.avatar ? (
+                      <img src={booking.user.avatar} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+                    ) : (
+                      `${booking.user?.first_name?.[0] || ''}${booking.user?.last_name?.[0] || ''}`.toUpperCase()
+                    )}
                   </div>
                   <div>
-                    <p className="font-medium">{booking.session_category}</p>
-                    <p className="text-gray-500 text-xs">{booking.user_id}</p>
+                    <p className="font-medium">
+                      {booking.user?.first_name && booking.user?.last_name
+                        ? `${booking.user.first_name} ${booking.user.last_name}`
+                        : booking.user_id}
+                    </p>
+                    <p className="text-gray-500 text-xs">{booking.user?.email || ''}</p>
                   </div>
                 </td>
                 <td className="py-4 px-2">
@@ -226,10 +258,16 @@ const BookingManagementPage = () => {
                         ? "bg-blue-100 text-blue-800"
                         : booking.status === "cancelled_by_user"
                         ? "bg-red-100 text-red-800"
+                        : booking.status === "cancelled_by_admin"
+                        ? "bg-red-200 text-red-900"
                         : "bg-gray-200 text-gray-800"
                     }`}
                   >
-                    {booking.status}
+                    {booking.status === "cancelled_by_user"
+                      ? "Cancelled by User"
+                      : booking.status === "cancelled_by_admin"
+                      ? "Cancelled by Admin"
+                      : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                   </span>
                 </td>
                 <td className="py-4 px-2">
