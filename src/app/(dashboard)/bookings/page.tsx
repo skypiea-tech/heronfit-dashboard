@@ -41,6 +41,17 @@ function formatTimeRange12h(start: string, end: string) {
   return `${to12h(start)} - ${to12h(end)}`;
 }
 
+// Helper to format time in 12-hour format
+function formatTime12h(timeStr: string) {
+  if (!timeStr) return "";
+  const [h, m] = timeStr.split(":");
+  const hour = parseInt(h, 10);
+  const minute = parseInt(m, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
+}
+
 // Hardcoded session time slots (e.g., 6:00 AM to 4:00 PM, 1-hour increments)
 const HARDCODED_SLOTS = [
   { start: "08:00:00", end: "09:00:00" },
@@ -333,18 +344,22 @@ const BookingManagementPage = () => {
           <table className="w-full table-auto">
             <thead>
               <tr className="border-b text-left text-sm font-semibold text-gray-600">
-                <th className="pb-2 pr-2">BOOKING ID</th>
-                <th className="pb-2 px-2">USER</th>
-                <th className="pb-2 px-2">DATE & TIME</th>
-                <th className="pb-2 px-2">STATUS</th>
-                <th className="pb-2 px-2">TICKET ID</th>
-                <th className="pb-2 pl-2">ACTIONS</th>
+                <th className="pb-2 pr-2 w-60">BOOKING ID</th>
+                <th className="pb-2 px-2 w-44">BOOKED AT</th>
+                <th className="pb-2 px-2 w-56">USER</th>
+                <th className="pb-2 px-2 w-44">DATE & TIME</th>
+                <th className="pb-2 px-2 w-32">STATUS</th>
+                <th className="pb-2 px-2 w-32">TICKET ID</th>
+                <th className="pb-2 pl-2 w-32">ACTIONS</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.map((booking) => (
                   <tr key={booking.id} className="border-b last:border-b-0 text-sm text-text">
                     <td className="py-4 pr-2 font-medium">{booking.id}</td>
+                    <td className="py-4 px-2">
+                      <p>{booking.created_at ? formatSessionDate(booking.created_at) + ' • ' + formatTime12h(new Date(booking.created_at).toTimeString().slice(0,5)) : '-'}</p>
+                    </td>
                     <td className="py-4 px-2">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-base overflow-hidden">
