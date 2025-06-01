@@ -76,12 +76,12 @@ const AnalyticsPage = () => {
       setError(null);
       try {
         // 1. Summary Metrics
-        // Total bookings this month
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const currentDate = new Date();
+        const yyyy = currentDate.getFullYear();
+        const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
         const firstDay = `${yyyy}-${mm}-01`;
-        const lastDay = `${yyyy}-${mm}-31`;
+        const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).toISOString().slice(0, 10);
+
         const { count: totalBookings, error: totalBookingsErr } = await supabase
           .from('bookings')
           .select('*', { count: 'exact', head: true })
@@ -90,7 +90,7 @@ const AnalyticsPage = () => {
         if (totalBookingsErr) throw totalBookingsErr;
 
         // Average daily attendance (bookings per day this month)
-        const daysInMonth = new Date(yyyy, now.getMonth() + 1, 0).getDate();
+        const daysInMonth = new Date(yyyy, currentDate.getMonth() + 1, 0).getDate();
         const avgAttendance = totalBookings ? Math.round(totalBookings / daysInMonth) : 0;
 
         // No-show rate (bookings with status 'no-show' this month)
@@ -123,33 +123,40 @@ const AnalyticsPage = () => {
           { value: `${peakUtil.toFixed(0)}%`, description: 'Peak Utilization' },
         ]);
 
-        // 2. Weekly Bookings vs Attendance (last 7 days)
+        // 2. Weekly Bookings vs Attendance (last 7 days) - Optimized to use a single query
+        const sevenDaysAgo = new Date(currentDate);
+        sevenDaysAgo.setDate(currentDate.getDate() - 6);
+        const dateStr = sevenDaysAgo.toISOString().slice(0, 10);
+        
+        const { data: weeklyBookings, error: weeklyErr } = await supabase
+          .from('bookings')
+          .select('session_date, status')
+          .gte('session_date', dateStr)
+          .lte('session_date', currentDate.toISOString().slice(0, 10));
+        
+        if (weeklyErr) throw weeklyErr;
+
+        // Process the data in memory instead of multiple queries
         const weekly: WeeklyData[] = [];
         for (let i = 6; i >= 0; i--) {
-          const d = new Date(now);
-          d.setDate(now.getDate() - i);
+          const d = new Date(currentDate);
+          d.setDate(currentDate.getDate() - i);
           const dateStr = d.toISOString().slice(0, 10);
           const day = d.toLocaleDateString('en-US', { weekday: 'short' });
-          // Bookings
-          const { count: bookings, error: bookingsErr } = await supabase
-            .from('bookings')
-            .select('*', { count: 'exact', head: true })
-            .eq('session_date', dateStr);
-          if (bookingsErr) throw bookingsErr;
-          // Attendance (confirmed bookings)
-          const { count: attendance, error: attErr } = await supabase
-            .from('bookings')
-            .select('*', { count: 'exact', head: true })
-            .eq('session_date', dateStr)
-            .eq('status', 'confirmed');
-          if (attErr) throw attErr;
-          weekly.push({ day, bookings: bookings || 0, attendance: attendance || 0 });
+          
+          const dayBookings = weeklyBookings?.filter(b => b.session_date === dateStr) || [];
+          const bookings = dayBookings.length;
+          const attendance = dayBookings.filter(b => b.status === 'confirmed').length;
+          
+          weekly.push({ day, bookings, attendance });
         }
-        setWeeklyData(weekly);        // 3. Daily Occupancy Pattern (today, by hour)
+        setWeeklyData(weekly);
+
+        // 3. Daily Occupancy Pattern (today, by hour)
         const occToday = (await supabase
           .from('session_occurrences')
           .select('start_time, booked_slots, attended_count, override_capacity')
-          .eq('date', now.toISOString().slice(0, 10))
+          .eq('date', currentDate.toISOString().slice(0, 10))
         ).data || [];
         setDailyOccupancyData(
           occToday.map(o => ({
@@ -161,11 +168,15 @@ const AnalyticsPage = () => {
         // 4. User Type Distribution (from users table)
         const { data: users, error: usersErr } = await supabase
           .from('users')
-          .select('user_type');
+          .select('user_role');
         if (usersErr) throw usersErr;
         const typeCounts: Record<string, number> = {};
         (users || []).forEach(u => {
-          const t = u.user_type || 'Unknown';
+          let t = u.user_role || 'Unknown';
+          // Group staff and faculty variations under FACULTY/STAFF
+          if (['STAFF', 'FACULTY', 'STAFF/FACULTY', 'FACULTY_STAFF', 'STAFF_FACULTY', 'FACULTY-STAFF', 'STAFF-FACULTY'].includes(t)) {
+            t = 'FACULTY/STAFF';
+          }
           typeCounts[t] = (typeCounts[t] || 0) + 1;
         });
         const totalUsers = (users || []).length;
@@ -180,7 +191,7 @@ const AnalyticsPage = () => {
         // 5. Monthly Booking Trends (last 6 months)
         const monthly: MonthlyData[] = [];
         for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
           const monthStr = d.toISOString().slice(0, 7);
           const { count: value, error: mErr } = await supabase
             .from('bookings')
@@ -237,7 +248,7 @@ const AnalyticsPage = () => {
       }
     };
     fetchAnalytics();
-  }, []);
+  }, []); // Set dependency array to empty for stable behavior
 
   if (loading) {
     return <div className="p-6 text-center text-text">Loading analytics...</div>;
@@ -355,9 +366,9 @@ const AnalyticsPage = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>                <Tooltip
-                  formatter={(value: number, name: string, props: any) => [
+                  formatter={(value: number, name: string) => [
                     `${value}%`,
-                    props.payload.type,
+                    name,
                   ]}
                 />
                 <Legend />
