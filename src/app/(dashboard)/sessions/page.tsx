@@ -7,6 +7,7 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import { SparklesIcon } from "@heroicons/react/20/solid"; // For Live icon
+import { supabase } from "@/lib/supabaseClient";
 
 // Define types for data
 interface SessionSummary {
@@ -25,107 +26,100 @@ interface TimeSlot {
 }
 
 const SessionManagementPage = () => {
-  const [currentOccupancy] = useState(23); // Dummy Data
-  const [maximumCapacity] = useState(50); // Dummy Data
-  const [summaryData, setSummaryData] = useState<SessionSummary | null>(null); // Dummy Data
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]); // Dummy Data
+  const [currentOccupancy, setCurrentOccupancy] = useState(0);
+  const [maximumCapacity, setMaximumCapacity] = useState(0);
+  const [summaryData, setSummaryData] = useState<SessionSummary | null>(null);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Dummy data
-  const dummySummary: SessionSummary = {
-    peakOccupancy: 28,
-    averageOccupancy: 18,
-    totalCheckIns: 47,
-    currentUtilization: "46%",
-  };
-
-  const dummyTimeSlots: TimeSlot[] = [
-    {
-      id: "1",
-      time: "07:00 - 08:00",
-      current: 12,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "2",
-      time: "08:00 - 09:00",
-      current: 23,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "3",
-      time: "09:00 - 10:00",
-      current: 25,
-      capacity: 25,
-      status: "full",
-    },
-    {
-      id: "4",
-      time: "10:00 - 11:00",
-      current: 18,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "5",
-      time: "11:00 - 12:00",
-      current: 15,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "6",
-      time: "12:00 - 13:00",
-      current: 0,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "7",
-      time: "13:00 - 14:00",
-      current: 8,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "8",
-      time: "14:00 - 15:00",
-      current: 22,
-      capacity: 25,
-      status: "open",
-    },
-    {
-      id: "9",
-      time: "15:00 - 16:00",
-      current: 25,
-      capacity: 25,
-      status: "full",
-    },
-    {
-      id: "10",
-      time: "16:00 - 17:00",
-      current: 20,
-      capacity: 25,
-      status: "open",
-    },
-  ];
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // For now, use dummy data
-    setSummaryData(dummySummary);
-    setTimeSlots(dummyTimeSlots);
-    setLoading(false);
-    // TODO: Implement Supabase data fetching here later for real-time updates
+    const fetchSessionData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const todayStr = `${yyyy}-${mm}-${dd}`;        const { data: occurrences, error: occErr } = await supabase
+          .from("session_occurrences")
+          .select(
+            "id, start_time, end_time, booked_slots, attended_count, override_capacity, session_id, sessions(name)"
+          )
+          .eq("date", todayStr)
+          .order("start_time", { ascending: true });
+        if (occErr) throw occErr;
+        
+        const maxCapacityPerSlot = 15; // Hardcoded capacity per slot
+        let peak = 0,
+          total = 0,
+          count = 0,
+          checkIns = 0;
+        
+        const slots = (occurrences || []).map((occ) => {
+          const current = (occ.booked_slots || 0) + (occ.attended_count || 0) + (occ.override_capacity || 0);
+          const capacity = maxCapacityPerSlot;
+          let status: "open" | "full" = current >= capacity ? "full" : "open";
+          const start = occ.start_time?.slice(0, 5) || "";
+          const end = occ.end_time?.slice(0, 5) || "";
+          
+          // Update summary calculations
+          if (current > peak) peak = current;
+          total += current;
+          count++;
+          checkIns += (occ.attended_count || 0);
+          
+          return {
+            id: occ.id,
+            time: `${start} - ${end}`,
+            current,
+            capacity,
+            status,
+          };
+        });
+        
+        setTimeSlots(slots);
+        setCurrentOccupancy(slots.reduce((sum, s) => sum + s.current, 0));
+        setMaximumCapacity(maxCapacityPerSlot * slots.length);
+        setSummaryData({
+          peakOccupancy: peak,
+          averageOccupancy: count ? Math.round(total / count) : 0,
+          totalCheckIns: checkIns,
+          currentUtilization:
+            slots.length && total
+              ? `${Math.round((total / (maxCapacityPerSlot * slots.length)) * 100)}%`
+              : "0%",
+        });
+      } catch (err) {
+        let msg = "Failed to load session data";
+        if (
+          err &&
+          typeof err === "object" &&
+          "message" in err &&
+          typeof err.message === "string"
+        ) {
+          msg = err.message;
+        }
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSessionData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const occupancyPercentage = (currentOccupancy / maximumCapacity) * 100;
+  const occupancyPercentage = maximumCapacity
+    ? (currentOccupancy / maximumCapacity) * 100
+    : 0;
 
   if (loading) {
     return (
       <div className="p-6 text-center text-text">Loading session data...</div>
     );
+  }
+  if (error) {
+    return <div className="p-6 text-center text-red-600">{error}</div>;
   }
 
   return (

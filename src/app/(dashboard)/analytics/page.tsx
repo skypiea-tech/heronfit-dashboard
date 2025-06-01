@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
 // Importing placeholder icons if needed, but charting libraries often handle their own visuals
 // import { ChartBarIcon, ChartPieIcon, ChartLineIcon } from '@heroicons/react/24/outline';
 
@@ -56,124 +58,192 @@ interface Insight {
   value: string;
 }
 
-// Dummy data based on the screenshot - Moved outside the component
-const dummySummaryMetrics: SummaryMetric[] = [
-  {
-    value: "1,247",
-    description: "Total Bookings This Month",
-    change: "+12%",
-    changeType: "increase",
-  },
-  {
-    value: "43",
-    description: "Average Daily Attendance",
-    change: "+8%",
-    changeType: "increase",
-  },
-  {
-    value: "7.2%",
-    description: "No-Show Rate",
-    change: "-2.1%",
-    changeType: "decrease",
-  },
-  {
-    value: "89%",
-    description: "Peak Utilization",
-    change: "+5%",
-    changeType: "increase",
-  },
-];
-
-const dummyWeeklyData: WeeklyData[] = [
-  { day: "Mon", bookings: 45, attendance: 42 },
-  { day: "Tue", bookings: 55, attendance: 48 },
-  { day: "Wed", bookings: 38, attendance: 35 },
-  { day: "Thu", bookings: 62, attendance: 58 },
-  { day: "Fri", bookings: 50, attendance: 45 },
-  { day: "Sat", bookings: 35, attendance: 30 },
-  { day: "Sun", bookings: 30, attendance: 28 },
-];
-
-const dummyDailyOccupancyData: DailyOccupancyPoint[] = [
-  { time: "6AM", occupancy: 5 },
-  { time: "7AM", occupancy: 10 },
-  { time: "8AM", occupancy: 22 },
-  { time: "9AM", occupancy: 24 },
-  { time: "10AM", occupancy: 19 },
-  { time: "11AM", occupancy: 15 },
-  { time: "12PM", occupancy: 8 },
-  { time: "1PM", occupancy: 22 },
-  { time: "2PM", occupancy: 28 },
-  { time: "3PM", occupancy: 25 },
-  { time: "4PM", occupancy: 20 },
-  { time: "5PM", occupancy: 15 },
-  { time: "6PM", occupancy: 10 },
-];
-
-const dummyUserTypeData: UserTypeData[] = [
-  { type: "Students", percentage: 65, color: "#443dff" }, // Primary color-ish
-  { type: "Faculty", percentage: 25, color: "#dddbff" }, // Secondary color-ish
-  { type: "Staff", percentage: 10, color: "#2f27ce" }, // A darker primary
-];
-
-const dummyMonthlyTrendsData: MonthlyData[] = [
-  { month: "Jan", value: 400 },
-  { month: "Feb", value: 380 },
-  { month: "Mar", value: 450 },
-  { month: "Apr", value: 500 },
-  { month: "May", value: 480 },
-  // Add more months
-];
-
-const dummyPeakHours: Insight[] = [
-  { label: "Morning Peak", value: "8:00 - 9:00 AM" },
-  { label: "Afternoon Peak", value: "2:00 - 3:00 PM" },
-  { label: "Lowest Usage", value: "12:00 - 1:00 PM" },
-];
-
-const dummyBookingInsights: Insight[] = [
-  { label: "Average Booking Lead Time", value: "1.5 days" },
-  { label: "Cancellation Rate", value: "12%" },
-  { label: "Same-day Bookings", value: "35%" },
-];
-
-const dummyUserEngagement: Insight[] = [
-  { label: "Regular Users (5+ bookings/month)", value: "78%" },
-  { label: "New Users This Month", value: "23" },
-  { label: "Return Rate", value: "85%" },
-];
-
 const AnalyticsPage = () => {
   const [summaryMetrics, setSummaryMetrics] = useState<SummaryMetric[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-  const [dailyOccupancyData, setDailyOccupancyData] = useState<
-    DailyOccupancyPoint[]
-  >([]);
+  const [dailyOccupancyData, setDailyOccupancyData] = useState<DailyOccupancyPoint[]>([]);
   const [userTypeData, setUserTypeData] = useState<UserTypeData[]>([]);
   const [monthlyTrendsData, setMonthlyTrendsData] = useState<MonthlyData[]>([]);
   const [peakHours, setPeakHours] = useState<Insight[]>([]);
   const [bookingInsights, setBookingInsights] = useState<Insight[]>([]);
   const [userEngagement, setUserEngagement] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // For now, use dummy data
-    setSummaryMetrics(dummySummaryMetrics);
-    setWeeklyData(dummyWeeklyData);
-    setDailyOccupancyData(dummyDailyOccupancyData);
-    setUserTypeData(dummyUserTypeData);
-    setMonthlyTrendsData(dummyMonthlyTrendsData);
-    setPeakHours(dummyPeakHours);
-    setBookingInsights(dummyBookingInsights);
-    setUserEngagement(dummyUserEngagement);
-    setLoading(false);
-    // TODO: Implement Supabase data fetching here later
-  }, []); // Empty dependency array as dummy data is constant
+    const fetchAnalytics = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // 1. Summary Metrics
+        // Total bookings this month
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const firstDay = `${yyyy}-${mm}-01`;
+        const lastDay = `${yyyy}-${mm}-31`;
+        const { count: totalBookings, error: totalBookingsErr } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .gte('session_date', firstDay)
+          .lte('session_date', lastDay);
+        if (totalBookingsErr) throw totalBookingsErr;
+
+        // Average daily attendance (bookings per day this month)
+        const daysInMonth = new Date(yyyy, now.getMonth() + 1, 0).getDate();
+        const avgAttendance = totalBookings ? Math.round(totalBookings / daysInMonth) : 0;
+
+        // No-show rate (bookings with status 'no-show' this month)
+        const { count: noShowCount, error: noShowErr } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'no-show')
+          .gte('session_date', firstDay)
+          .lte('session_date', lastDay);
+        if (noShowErr) throw noShowErr;
+        const noShowRate = totalBookings ? `${((noShowCount || 0) / totalBookings * 100).toFixed(1)}%` : '0%';        // Peak utilization (max occupancy / max capacity for any session_occurrence this month)
+        const { data: occs, error: occsErr } = await supabase
+          .from('session_occurrences')
+          .select('booked_slots, attended_count, override_capacity')
+          .gte('date', firstDay)
+          .lte('date', lastDay);
+        if (occsErr) throw occsErr;
+        let peakUtil = 0;
+        const maxCapacityPerSlot = 15; // Hardcoded capacity per slot
+        (occs || []).forEach(o => {
+          const currentOccupancy = (o.booked_slots || 0) + (o.attended_count || 0) + (o.override_capacity || 0);
+          const util = (currentOccupancy / maxCapacityPerSlot) * 100;
+          if (util > peakUtil) peakUtil = util;
+        });
+        // Set summary metrics
+        setSummaryMetrics([
+          { value: totalBookings?.toLocaleString() || '0', description: 'Total Bookings This Month' },
+          { value: avgAttendance.toString(), description: 'Average Daily Attendance' },
+          { value: noShowRate, description: 'No-Show Rate' },
+          { value: `${peakUtil.toFixed(0)}%`, description: 'Peak Utilization' },
+        ]);
+
+        // 2. Weekly Bookings vs Attendance (last 7 days)
+        const weekly: WeeklyData[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now);
+          d.setDate(now.getDate() - i);
+          const dateStr = d.toISOString().slice(0, 10);
+          const day = d.toLocaleDateString('en-US', { weekday: 'short' });
+          // Bookings
+          const { count: bookings, error: bookingsErr } = await supabase
+            .from('bookings')
+            .select('*', { count: 'exact', head: true })
+            .eq('session_date', dateStr);
+          if (bookingsErr) throw bookingsErr;
+          // Attendance (confirmed bookings)
+          const { count: attendance, error: attErr } = await supabase
+            .from('bookings')
+            .select('*', { count: 'exact', head: true })
+            .eq('session_date', dateStr)
+            .eq('status', 'confirmed');
+          if (attErr) throw attErr;
+          weekly.push({ day, bookings: bookings || 0, attendance: attendance || 0 });
+        }
+        setWeeklyData(weekly);        // 3. Daily Occupancy Pattern (today, by hour)
+        const occToday = (await supabase
+          .from('session_occurrences')
+          .select('start_time, booked_slots, attended_count, override_capacity')
+          .eq('date', now.toISOString().slice(0, 10))
+        ).data || [];
+        setDailyOccupancyData(
+          occToday.map(o => ({
+            time: o.start_time?.slice(0, 5) || '',
+            occupancy: (o.booked_slots || 0) + (o.attended_count || 0) + (o.override_capacity || 0),
+          }))
+        );
+
+        // 4. User Type Distribution (from users table)
+        const { data: users, error: usersErr } = await supabase
+          .from('users')
+          .select('user_type');
+        if (usersErr) throw usersErr;
+        const typeCounts: Record<string, number> = {};
+        (users || []).forEach(u => {
+          const t = u.user_type || 'Unknown';
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+        const totalUsers = (users || []).length;
+        setUserTypeData(
+          Object.entries(typeCounts).map(([type, count], i) => ({
+            type,
+            percentage: totalUsers ? Math.round((count / totalUsers) * 100) : 0,
+            color: ["#443dff", "#dddbff", "#2f27ce", "#8884d8"][i % 4],
+          }))
+        );
+
+        // 5. Monthly Booking Trends (last 6 months)
+        const monthly: MonthlyData[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const monthStr = d.toISOString().slice(0, 7);
+          const { count: value, error: mErr } = await supabase
+            .from('bookings')
+            .select('*', { count: 'exact', head: true })
+            .gte('session_date', `${monthStr}-01`)
+            .lte('session_date', `${monthStr}-31`);
+          if (mErr) throw mErr;
+          monthly.push({ month: d.toLocaleString('en-US', { month: 'short' }), value: value || 0 });
+        }
+        setMonthlyTrendsData(monthly);        // 6. Generate insights based on the data
+        const peakHoursData: Insight[] = [];
+        if (dailyOccupancyData.length > 0) {
+          const peakTime = dailyOccupancyData.reduce((prev, current) =>
+            prev.occupancy > current.occupancy ? prev : current
+          );
+          peakHoursData.push({ label: "Peak Time", value: `${peakTime.time} (${peakTime.occupancy} people)` });
+        }
+        if (weeklyData.length > 0) {
+          const avgBookings = weeklyData.reduce((sum, day) => sum + day.bookings, 0) / weeklyData.length;
+          peakHoursData.push({ label: "Avg Daily Bookings", value: `${avgBookings.toFixed(1)}` });
+        }
+        setPeakHours(peakHoursData);
+
+        const bookingInsightsData: Insight[] = [];
+        if (totalBookings && noShowCount !== undefined) {
+          const confirmationRate = ((totalBookings - (noShowCount || 0)) / totalBookings * 100).toFixed(1);
+          bookingInsightsData.push({ label: "Confirmation Rate", value: `${confirmationRate}%` });
+        }
+        if (weeklyData.length > 0) {
+          const totalWeeklyBookings = weeklyData.reduce((sum, day) => sum + day.bookings, 0);
+          const totalWeeklyAttendance = weeklyData.reduce((sum, day) => sum + day.attendance, 0);
+          const attendanceRate = totalWeeklyBookings > 0 ? ((totalWeeklyAttendance / totalWeeklyBookings) * 100).toFixed(1) : '0';
+          bookingInsightsData.push({ label: "Weekly Attendance Rate", value: `${attendanceRate}%` });
+        }
+        setBookingInsights(bookingInsightsData);
+
+        const engagementData: Insight[] = [];
+        if (users && users.length > 0) {
+          engagementData.push({ label: "Total Registered Users", value: users.length.toString() });
+        }
+        if (totalBookings) {
+          const avgBookingsPerUser = users && users.length > 0 ? (totalBookings / users.length).toFixed(1) : '0';
+          engagementData.push({ label: "Avg Bookings/User", value: avgBookingsPerUser });
+        }
+        setUserEngagement(engagementData);
+      } catch (err) {
+        let msg = 'Failed to load analytics';
+        if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+          msg = err.message;
+        }
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, []);
 
   if (loading) {
-    return (
-      <div className="p-6 text-center text-text">Loading analytics...</div>
-    );
+    return <div className="p-6 text-center text-text">Loading analytics...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-center text-red-600">{error}</div>;
   }
 
   return (
@@ -263,12 +333,10 @@ const AnalyticsPage = () => {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        {/* User Type Distribution (Pie Chart) */}
+        </div>        {/* User Type Distribution (Pie Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">
-            User Type Distribution (Sample)
+            User Type Distribution
           </h2>
           <div className="h-64 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -279,18 +347,16 @@ const AnalyticsPage = () => {
                   cy="50%"
                   outerRadius={80}
                   fill="#8884d8"
-                  dataKey="percentage"
-                  label={({ name, percentage }) =>
-                    `${name}: ${(percentage * 1).toFixed(0)}%`
+                  dataKey="percentage"                  label={({ type, percentage }) =>
+                    `${type}: ${percentage}%`
                   }
                 >
                   {userTypeData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value: number, name: string, props) => [
-                    `${value.toFixed(0)}%`,
+                </Pie>                <Tooltip
+                  formatter={(value: number, name: string, props: any) => [
+                    `${value}%`,
                     props.payload.type,
                   ]}
                 />
