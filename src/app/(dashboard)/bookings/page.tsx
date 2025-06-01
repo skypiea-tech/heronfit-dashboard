@@ -9,8 +9,21 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
 
+// Helper to format date as 'Month Day, Year'
+function formatSessionDate(dateStr: string) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 const BookingManagementPage = () => {
   const [bookings, setBookings] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [selectedSession, setSelectedSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetchBookings = async () => {
@@ -20,15 +33,14 @@ const BookingManagementPage = () => {
         .from("bookings")
         .select("*")
         .order("created_at", { ascending: false });
-      
       if (error) {
         console.error("Error fetching bookings:", error);
         setBookings([]);
+        setSessions([]);
       } else {
         const fetchedBookings: any[] = data || [];
         // Get unique user_ids
         const userIds = Array.from(new Set(fetchedBookings.map((b) => b.user_id)));
-        
         // Fetch user details
         let usersMap: Record<string, any> = {};
         if (userIds.length > 0) {
@@ -36,26 +48,41 @@ const BookingManagementPage = () => {
             .from("users")
             .select("id, first_name, last_name, email_address, avatar")
             .in("id", userIds);
-            
           if (usersErr) {
             console.error("Error fetching users:", usersErr);
           } else if (usersData) {
             usersMap = Object.fromEntries(usersData.map((u) => [u.id, u]));
           }
         }
-        
         // Merge user info into bookings
         const bookingsWithUsers = fetchedBookings.map((b) => ({
           ...b,
           user: usersMap[b.user_id] || null,
         }));
-        
-        console.log("Bookings with users:", bookingsWithUsers);
         setBookings(bookingsWithUsers);
+        // Group sessions by session_date, session_start_time, session_end_time
+        const sessionMap = new Map();
+        bookingsWithUsers.forEach((b) => {
+          const key = `${b.session_date}|${b.session_start_time}|${b.session_end_time}`;
+          if (!sessionMap.has(key)) {
+            sessionMap.set(key, {
+              session_date: b.session_date,
+              session_start_time: b.session_start_time,
+              session_end_time: b.session_end_time,
+              session_id: b.session_id,
+            });
+          }
+        });
+        setSessions(Array.from(sessionMap.values()));
+        // Auto-select first session
+        if (sessionMap.size > 0 && !selectedSession) {
+          setSelectedSession(Array.from(sessionMap.values())[0]);
+        }
       }
       setLoading(false);
     };
     fetchBookings();
+    // eslint-disable-next-line
   }, []);
 
   if (loading) {
@@ -112,6 +139,22 @@ const BookingManagementPage = () => {
           </select>
         </div>
       </div>
+      {/* Session List */}
+      <div className="mb-6">
+        <h2 className="text-xl font-header mb-2">Sessions</h2>
+        <div className="flex flex-wrap gap-2">
+          {sessions.map((session, idx) => (
+            <button
+              key={idx}
+              className={`px-4 py-2 rounded-md border text-sm font-medium transition-colors ${selectedSession && session.session_date === selectedSession.session_date && session.session_start_time === selectedSession.session_start_time && session.session_end_time === selectedSession.session_end_time ? 'bg-primary text-white border-primary' : 'bg-white text-gray-800 border-gray-300 hover:bg-primary hover:text-white'}`}
+              onClick={() => setSelectedSession(session)}
+            >
+              {formatSessionDate(session.session_date)} | {session.session_start_time} - {session.session_end_time}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Bookings Table */}
       <div className="bg-white p-4 rounded-lg shadow overflow-x-auto mb-6">
         <table className="w-full table-auto">
           <thead>
@@ -125,93 +168,101 @@ const BookingManagementPage = () => {
             </tr>
           </thead>
           <tbody>
-            {bookings.map((booking) => (
-              <tr key={booking.id} className="border-b last:border-b-0 text-sm text-text">
-                <td className="py-4 pr-2 font-medium">{booking.id}</td>
-                <td className="py-4 px-2">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-base overflow-hidden">
-                      {booking.user?.avatar ? (
-                        <img src={booking.user.avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
-                      ) : (
-                        <span>
-                          {booking.user?.first_name || booking.user?.last_name
-                            ? `${booking.user?.first_name?.[0] || ''}${booking.user?.last_name?.[0] || ''}`.toUpperCase()
-                            : <span className="text-xs">No Avatar</span>}
+            {bookings
+              .filter((booking) =>
+                selectedSession
+                  ? booking.session_date === selectedSession.session_date &&
+                    booking.session_start_time === selectedSession.session_start_time &&
+                    booking.session_end_time === selectedSession.session_end_time
+                  : true
+              )
+              .map((booking) => (
+                <tr key={booking.id} className="border-b last:border-b-0 text-sm text-text">
+                  <td className="py-4 pr-2 font-medium">{booking.id}</td>
+                  <td className="py-4 px-2">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center text-gray-600 font-medium text-base overflow-hidden">
+                        {booking.user?.avatar ? (
+                          <img src={booking.user.avatar} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <span>
+                            {booking.user?.first_name || booking.user?.last_name
+                              ? `${booking.user?.first_name?.[0] || ''}${booking.user?.last_name?.[0] || ''}`.toUpperCase()
+                              : <span className="text-xs">No Avatar</span>}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-sm text-gray-900">
+                          {booking.user?.first_name && booking.user?.last_name
+                            ? `${booking.user.first_name} ${booking.user.last_name}`
+                            : booking.user?.first_name
+                            ? booking.user.first_name
+                            : booking.user?.last_name
+                            ? booking.user.last_name
+                            : 'Unknown User'}
                         </span>
-                      )}
+                        <span className="text-xs text-gray-500">
+                          {booking.user?.email_address || ''}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-sm text-gray-900">
-                        {booking.user?.first_name && booking.user?.last_name
-                          ? `${booking.user.first_name} ${booking.user.last_name}`
-                          : booking.user?.first_name
-                          ? booking.user.first_name
-                          : booking.user?.last_name
-                          ? booking.user.last_name
-                          : 'Unknown User'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {booking.user?.email_address || ''}
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4 px-2">
-                  <p>{booking.session_date}</p>
-                  <p className="text-gray-500 text-xs">{`${booking.session_start_time} - ${booking.session_end_time}`}</p>
-                </td>
-                <td className="py-4 px-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      booking.status === "confirmed"
-                        ? "bg-green-100 text-green-800"
-                        : booking.status === "pending"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : booking.status === "waitlisted"
-                        ? "bg-blue-100 text-blue-800"
-                        : booking.status === "cancelled_by_user"
-                        ? "bg-red-100 text-red-800"
+                  </td>
+                  <td className="py-4 px-2">
+                    <p>{formatSessionDate(booking.session_date)}</p>
+                    <p className="text-gray-500 text-xs">{`${booking.session_start_time} - ${booking.session_end_time}`}</p>
+                  </td>
+                  <td className="py-4 px-2">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        booking.status === "confirmed"
+                          ? "bg-green-100 text-green-800"
+                          : booking.status === "pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : booking.status === "waitlisted"
+                          ? "bg-blue-100 text-blue-800"
+                          : booking.status === "cancelled_by_user"
+                          ? "bg-red-100 text-red-800"
+                          : booking.status === "cancelled_by_admin"
+                          ? "bg-red-200 text-red-900"
+                          : "bg-gray-200 text-gray-800"
+                      }`}
+                    >
+                      {booking.status === "cancelled_by_user"
+                        ? "Cancelled by User"
                         : booking.status === "cancelled_by_admin"
-                        ? "bg-red-200 text-red-900"
-                        : "bg-gray-200 text-gray-800"
-                    }`}
-                  >
-                    {booking.status === "cancelled_by_user"
-                      ? "Cancelled by User"
-                      : booking.status === "cancelled_by_admin"
-                      ? "Cancelled by Admin"
-                      : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                  </span>
-                </td>
-                <td className="py-4 px-2">{booking.ticket_id ? booking.ticket_id : "-"}</td>
-                <td className="py-4 pl-2 flex items-center space-x-2">
-                  <button className="text-blue-600 hover:text-blue-800" title="View Details">
-                    <EyeIcon className="w-5 h-5" />
-                  </button>
-                  {booking.status === "pending" && (
-                    <>
-                      <button className="text-green-600 hover:text-green-800" title="Confirm Booking">
-                        <CheckCircleIcon className="w-5 h-5" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-800" title="Reject Booking">
+                        ? "Cancelled by Admin"
+                        : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="py-4 px-2">{booking.ticket_id ? booking.ticket_id : "-"}</td>
+                  <td className="py-4 pl-2 flex items-center space-x-2">
+                    <button className="text-blue-600 hover:text-blue-800" title="View Details">
+                      <EyeIcon className="w-5 h-5" />
+                    </button>
+                    {booking.status === "pending" && (
+                      <>
+                        <button className="text-green-600 hover:text-green-800" title="Confirm Booking">
+                          <CheckCircleIcon className="w-5 h-5" />
+                        </button>
+                        <button className="text-red-600 hover:text-red-800" title="Reject Booking">
+                          <XCircleIcon className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+                    {booking.status === "confirmed" && (
+                      <button className="text-red-600 hover:text-red-800" title="Cancel Booking">
                         <XCircleIcon className="w-5 h-5" />
                       </button>
-                    </>
-                  )}
-                  {booking.status === "confirmed" && (
-                    <button className="text-red-600 hover:text-red-800" title="Cancel Booking">
-                      <XCircleIcon className="w-5 h-5" />
-                    </button>
-                  )}
-                  {booking.status === "waitlisted" && (
-                    <button className="text-green-600 hover:text-green-800" title="Confirm from Waitlist">
-                      <CheckCircleIcon className="w-5 h-5" />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    )}
+                    {booking.status === "waitlisted" && (
+                      <button className="text-green-600 hover:text-green-800" title="Confirm from Waitlist">
+                        <CheckCircleIcon className="w-5 h-5" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
