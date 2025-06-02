@@ -156,7 +156,7 @@ const SessionManagementPage = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Session Management</h1>
+      <h1 className="text-3xl font-header mb-2">Real-time Occupancy Monitoring</h1>
       {SHOW_DEBUG_ANALYTICS_BUTTON && (
         <button
           className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -185,7 +185,7 @@ const SessionManagementPage = () => {
         {/* Current Gym Occupancy */}
         <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-header">Current Gym Occupancy</h2>
+            <h2 className="text-xl font-header">Manual Occupancy Controls</h2>
             <span className="text-sm font-medium text-primary flex items-center">
               <SparklesIcon className="w-4 h-4 mr-1" /> Live
             </span>
@@ -285,7 +285,7 @@ const SessionManagementPage = () => {
         <div className="lg:col-span-1 flex flex-col gap-6">
           {/* Maximum Capacity */}
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-header mb-4">Maximum Capacity</h2>
+            <h2 className="text-xl font-header mb-4">Capacity Configuration</h2>
             {editCapacityMode ? (
               <>
                 <input
@@ -376,7 +376,7 @@ const SessionManagementPage = () => {
       {/* Today's Time Slots */}
       <div className="bg-white p-6 rounded-lg shadow">
         <div className="flex items-center mb-4 gap-4">
-          <h2 className="text-xl font-header">Today&apos;s Time Slots</h2>
+          <h2 className="text-xl font-header">Session Attendance Tracking</h2>
           {displayDate && (
             <span className="text-sm text-gray-500 font-medium">{displayDate}</span>
           )}

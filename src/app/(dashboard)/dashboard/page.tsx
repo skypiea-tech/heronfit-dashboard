@@ -1,9 +1,28 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+
+interface Booking {
+  id: string;
+  user_id: string;
+  status: string;
+  session_start_time: string;
+  session_end_time: string;
+  session_date: string;
+  ticket_id?: string;
+  created_at: string;
+  users?: {
+    first_name?: string;
+    last_name?: string;
+    email_address?: string;
+    avatar?: string;
+  } | null;
+}
 
 const DashboardPage = () => {
+  const router = useRouter();
   const [stats, setStats] = React.useState({
     activeUsers: 0,
     bookingsToday: 0,
@@ -14,7 +33,8 @@ const DashboardPage = () => {
     percentBookingsChange: 0,
     percentOccupancyChange: 0,
     percentPendingChange: 0,
-  });  const [recentBookings, setRecentBookings] = React.useState<any[]>([]);
+  });
+  const [recentBookings, setRecentBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -61,11 +81,13 @@ const DashboardPage = () => {
           .from("bookings")
           .select("*", { count: "exact", head: true })
           .eq("status", "pending");
-        if (pendingErr) throw pendingErr;        // Recent bookings (last 5) with user names
+        if (pendingErr) throw pendingErr;
+
+        // Recent bookings (last 5) with user names
         const { data: recent, error: recentErr } = await supabase
           .from("bookings")
           .select(
-            "id, user_id, status, session_start_time, session_end_time, session_date, ticket_id"
+            "id, user_id, status, session_start_time, session_end_time, session_date, ticket_id, created_at"
           )
           .order("created_at", { ascending: false })
           .limit(5);
@@ -77,7 +99,7 @@ const DashboardPage = () => {
           const userIds = recent.map(booking => booking.user_id);
           const { data: usersData, error: usersErr } = await supabase
             .from("users")
-            .select("id, first_name, last_name, avatar")
+            .select("id, first_name, last_name, avatar, email_address")
             .in("id", userIds);
           
           if (usersErr) {
@@ -134,16 +156,7 @@ const DashboardPage = () => {
       day: "numeric",
     });
   }
-  // Helper to format time in 12-hour format
-  function formatTime12h(timeStr: string) {
-    if (!timeStr) return "";
-    const [h, m] = timeStr.split(":");
-    const hour = parseInt(h, 10);
-    const minute = parseInt(m, 10);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-    return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
-  }
+
   // Helper to format time range in 12-hour format
   function formatTimeRange12h(start: string, end: string) {
     if (!start || !end) return "";
@@ -167,7 +180,7 @@ const DashboardPage = () => {
 
   return (
     <div className="">
-      <h1 className="text-3xl font-header mb-2">Dashboard Overview</h1>
+      <h1 className="text-3xl font-header mb-2">Summary Statistics</h1>
       <p className="text-body text-lg mb-6">
         Welcome back! Here&apos;s what&apos;s happening at UMak Gym today.
       </p>
@@ -305,7 +318,7 @@ const DashboardPage = () => {
         {/* Recent Booking Activity */}
         <div className="lg:col-span-2 bg-white p-4 rounded-lg shadow">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
-            Recent Booking Activity
+            Recent Booking Activities
           </h2>
           {/* Placeholder list of bookings */}
           <div className="space-y-4">
@@ -375,16 +388,25 @@ const DashboardPage = () => {
           {/* Quick Actions */}
           <div className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">
-              Quick Actions
+              Quick Access Navigation
             </h2>
             <div className="space-y-2">
-              <button className="w-full bg-primary text-white py-2 rounded-md hover:bg-accent transition-colors">
+              <button 
+                onClick={() => router.push('/sessions')}
+                className="w-full bg-primary text-white py-2 rounded-md hover:bg-accent transition-colors"
+              >
                 Manual Check-in
               </button>
-              <button className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300 transition-colors">
+              <button 
+                onClick={() => router.push('/announcements')}
+                className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300 transition-colors"
+              >
                 Send Announcement
               </button>
-              <button className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300 transition-colors">
+              <button 
+                onClick={() => router.push('/analytics')}
+                className="w-full bg-gray-200 text-gray-800 py-2 rounded-md hover:bg-gray-300 transition-colors"
+              >
                 View Reports
               </button>
             </div>

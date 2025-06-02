@@ -231,8 +231,7 @@ const AnnouncementsPage: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-100 text-gray-800 min-h-screen">
-      <h1 className="text-3xl font-bold mb-2">Announcement Management</h1>{" "}
-      {/* Use font-bold */}
+      <h1 className="text-3xl font-bold mb-2">Create Targeted Announcements</h1>
       <p className="text-lg mb-6">
         Create and manage announcements for gym users.
       </p>
@@ -249,7 +248,7 @@ const AnnouncementsPage: React.FC = () => {
       </div>
       {/* Create New Announcement */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-bold mb-4">Create New Announcement</h2>
+        <h2 className="text-xl font-bold mb-4">Announcement Types</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label
@@ -419,11 +418,14 @@ const AnnouncementsPage: React.FC = () => {
         onArchive={handleArchive}
       />
       <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Archived Announcements</h2>
+        <h2 className="text-xl font-bold mb-4">Announcement History</h2>
         <AnnouncementList
           announcements={archivedAnnouncements}
           onUnarchive={handleUnarchive}
         />
+      </div>
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-4">Scheduled Communications</h2>
       </div>
     </div>
   );

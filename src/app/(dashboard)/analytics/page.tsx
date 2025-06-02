@@ -540,7 +540,7 @@ const AnalyticsPage = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Analytics & Reports</h1>
+      <h1 className="text-3xl font-header mb-2">Booking Data</h1>
       <p className="text-body text-lg mb-6">
         Insights into gym usage, bookings, and user activity.
       </p>
@@ -571,7 +571,7 @@ const AnalyticsPage = () => {
         {/* Weekly Bookings vs Attendance (Bar Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">
-            Weekly Bookings vs Attendance
+            Session Attendance Reports
           </h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -644,7 +644,7 @@ const AnalyticsPage = () => {
         {/* User Type Distribution (Pie Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-xl font-header mb-4">
-            User Type Distribution (Sample)
+            User Activity Metrics
           </h2>
           <div className="h-64 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
@@ -678,7 +678,7 @@ const AnalyticsPage = () => {
 
         {/* Monthly Booking Trends (Line Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-header mb-4">Monthly Booking Trends</h2>
+          <h2 className="text-xl font-header mb-4">Data Visualization</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
@@ -710,7 +710,7 @@ const AnalyticsPage = () => {
       {/* Insights Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-header mb-4">Peak Hours</h2>
+          <h2 className="text-xl font-header mb-4">Usage Reports</h2>
           <ul>
             {peakHours.map((insight, index) => (
               <li key={index} className="mb-2 text-body">

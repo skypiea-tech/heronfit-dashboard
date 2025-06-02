@@ -244,7 +244,7 @@ const BookingManagementPage = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Booking Management</h1>
+      <h1 className="text-3xl font-header mb-2">Comprehensive Booking Overview</h1>
       <p className="text-body text-lg mb-6">Monitor and manage gym session bookings.</p>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">
@@ -338,6 +338,7 @@ const BookingManagementPage = () => {
       </div>
       {/* Bookings Table */}
       <div className="bg-white p-4 rounded-lg shadow overflow-x-auto mb-6">
+        <h2 className="text-xl font-header mb-4">Booking Administration</h2>
         {selectedSession && filteredBookings.length === 0 ? (
           <div className="text-center text-gray-500 py-8 text-lg">No bookings found.</div>
         ) : (
@@ -442,7 +443,7 @@ const BookingManagementPage = () => {
         )}
       </div>
       <div className="bg-white p-4 rounded-lg shadow">
-        <h2 className="text-xl font-header mb-4">Quick Ticket Validation</h2>
+        <h2 className="text-xl font-header mb-4">Ticket ID Verification System</h2>
         <div className="flex flex-col sm:flex-row gap-4">
           <input
             type="text"
