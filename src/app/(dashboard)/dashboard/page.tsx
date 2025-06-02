@@ -276,7 +276,8 @@ const DashboardPage = () => {
             </div>
           </div>
           <p className="text-3xl font-bold text-text">
-            {stats.currentOccupancy} / {stats.maxCapacity}
+            {/* {stats.currentOccupancy} / {stats.maxCapacity} */}
+            {stats.currentOccupancy}
           </p>
           <p className="text-sm text-gray-500">46% from yesterday</p>
         </div>
