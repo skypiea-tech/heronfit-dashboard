@@ -15,6 +15,7 @@ export async function logHourlySessionAnalytics({
   cancelled_count,
   waitlist_count,
   peak_time,
+  max_capacity,
 }: {
   date: string; // YYYY-MM-DD
   start_time_of_day: string; // "HH:MM"
@@ -26,6 +27,7 @@ export async function logHourlySessionAnalytics({
   cancelled_count: number;
   waitlist_count: number;
   peak_time: string; // "HH:MM"
+  max_capacity: number;
 }) {
   const { error } = await supabase.from('analytics').insert([
     {
@@ -39,6 +41,7 @@ export async function logHourlySessionAnalytics({
       cancelled_count,
       waitlist_count,
       peak_time,
+      max_capacity,
     },
   ]);
   if (error) {
@@ -59,6 +62,7 @@ export async function logDailyAnalyticsSummary({
   total_waitlist,
   peak_occupancy,
   peak_time,
+  max_capacity,
 }: {
   date: string;
   total_occupancy: number;
@@ -68,6 +72,7 @@ export async function logDailyAnalyticsSummary({
   total_waitlist: number;
   peak_occupancy: number;
   peak_time: string;
+  max_capacity: number;
 }) {
   // Optionally, you can insert a special row or a separate table for daily summary
   // Here, we insert a row with start/end time as '00:00'/'23:59' to indicate daily summary
@@ -83,6 +88,7 @@ export async function logDailyAnalyticsSummary({
       cancelled_count: total_cancellations,
       waitlist_count: total_waitlist,
       peak_time,
+      max_capacity,
     },
   ]);
   if (error) {
@@ -138,7 +144,7 @@ export async function logMissingHourlyAnalytics() {
     const endTime = String(currentHour + 1).padStart(2, '0') + ':00';
     const { data: occs, error: occErr } = await supabase
       .from('session_occurrences')
-      .select('booked_slots, attended_count, override_capacity, status, waitlist_count, cancelled_count, start_time_of_day')
+      .select('booked_slots, attended_count, override_capacity, status, waitlist_count, cancelled_count, start_time_of_day, max_capacity')
       .eq('date', currentDate)
       .gte('start_time_of_day', startTime)
       .lt('start_time_of_day', endTime);
@@ -148,6 +154,7 @@ export async function logMissingHourlyAnalytics() {
     let hourly_occupancy = 0, booked_count = 0, attended_count = 0, no_show_count = 0, cancelled_count = 0, waitlist_count = 0;
     let peak_time = startTime;
     let max_occupancy = 0;
+    let max_capacity = 0;
     (occs || []).forEach(occ => {
       const occVal = (occ.booked_slots || 0) + (occ.attended_count || 0) + (occ.override_capacity || 0);
       hourly_occupancy += occVal;
@@ -155,6 +162,7 @@ export async function logMissingHourlyAnalytics() {
       attended_count += occ.attended_count || 0;
       cancelled_count += occ.cancelled_count || 0;
       waitlist_count += occ.waitlist_count || 0;
+      max_capacity = Math.max(max_capacity, occ.max_capacity || 0);
       const occTime = occ.start_time_of_day || startTime;
       if (occVal > max_occupancy) {
         max_occupancy = occVal;
@@ -175,6 +183,7 @@ export async function logMissingHourlyAnalytics() {
       cancelled_count,
       waitlist_count,
       peak_time,
+      max_capacity,
     });
 
     // Move to next hour
@@ -185,5 +194,45 @@ export async function logMissingHourlyAnalytics() {
       currentDate = d.toISOString().slice(0, 10);
       currentHour = 0;
     }
+  }
+}
+
+/**
+ * Debug function to log analytics for all slots in the current day.
+ * This is useful for testing and development.
+ */
+export async function debugLogAnalyticsForTodaySlots() {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const DEFAULT_DEBUG_MAX_CAPACITY = 50;
+  
+  // Get all slots for today
+  const { data: slots, error: slotsError } = await supabase
+    .from('session_occurrences')
+    .select('*')
+    .eq('date', today)
+    .order('start_time_of_day', { ascending: true });
+
+  if (slotsError) throw slotsError;
+  if (!slots) return;
+
+  // Log analytics for each slot
+  for (const slot of slots) {
+    const [hours, minutes] = slot.start_time_of_day.split(':');
+    const endTime = `${String(parseInt(hours) + 1).padStart(2, '0')}:${minutes}`;
+    
+    await logHourlySessionAnalytics({
+      date: today,
+      start_time_of_day: slot.start_time_of_day,
+      end_time_of_day: endTime,
+      hourly_occupancy: (slot.booked_slots || 0) + (slot.attended_count || 0) + (slot.override_capacity || 0),
+      daily_occupancy: 0,
+      booked_count: slot.booked_slots || 0,
+      no_show_count: (slot.booked_slots || 0) - (slot.attended_count || 0),
+      cancelled_count: slot.cancelled_count || 0,
+      waitlist_count: slot.waitlist_count || 0,
+      peak_time: slot.start_time_of_day,
+      max_capacity: DEFAULT_DEBUG_MAX_CAPACITY, // Use default debug max capacity
+    });
   }
 } 

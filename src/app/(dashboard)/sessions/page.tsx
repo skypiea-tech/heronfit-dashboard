@@ -17,7 +17,8 @@ import {
 } from "./models/SessionModel";
 import { logHourlySessionAnalytics } from "./models/AnalyticsLogger";
 
-const SHOW_DEBUG_ANALYTICS_BUTTON = false; // Set to false to hide debug analytics button
+// Secret debug mode toggle - change this to true to make the button visible
+const DEBUG_MODE = false;
 
 const SessionManagementPage = () => {
   const [maximumCapacity, setMaximumCapacity] = useState(DEFAULT_MAXIMUM_CAPACITY);
@@ -184,6 +185,7 @@ const SessionManagementPage = () => {
           cancelled_count: 0,
           waitlist_count: 0,
           peak_time: currentSlotInfo.slot.time,
+          max_capacity: maximumCapacity,
         });
       } catch (error) {
         console.error('Failed to log analytics:', error);
@@ -216,6 +218,7 @@ const SessionManagementPage = () => {
               cancelled_count: 0,
               waitlist_count: 0,
               peak_time: currentSlotInfo.slot.time,
+              max_capacity: maximumCapacity,
             });
           } catch (error) {
             console.error('Failed to log analytics for ended timeslot:', error);
@@ -227,7 +230,7 @@ const SessionManagementPage = () => {
     // Check every minute
     const interval = setInterval(checkAndLogTimeslot, 60000);
     return () => clearInterval(interval);
-  }, [currentSlotInfo, currentOccupancy]);
+  }, [currentSlotInfo, currentOccupancy, maximumCapacity]);
 
   // Initialize pendingOccupancy when currentOccupancy changes
   useEffect(() => {
@@ -271,9 +274,15 @@ const SessionManagementPage = () => {
     <div className="p-6 bg-background text-text min-h-screen">
       <h1 className="text-3xl font-header mb-2">Session Management</h1>
       <p className="text-body text-lg mb-6">Monitor and manage gym session occupancy and capacity.</p>
-      {SHOW_DEBUG_ANALYTICS_BUTTON && (
+      
+      {/* Sneaky debug button */}
+      <div className="fixed top-2 right-2">
         <button
-          className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className={`px-4 py-2 rounded transition-all duration-300 ${
+            DEBUG_MODE 
+              ? 'bg-blue-600 text-white hover:bg-blue-700' 
+              : 'opacity-0 hover:opacity-20'
+          }`}
           disabled={debugLoading}
           onClick={async () => {
             setDebugLoading(true);
@@ -286,10 +295,12 @@ const SessionManagementPage = () => {
               setDebugLoading(false);
             }
           }}
+          title="Debug: Log Analytics for All Slots"
         >
-          {debugLoading ? 'Logging Analytics...' : 'Debug: Log Analytics for All Slots'}
+          {debugLoading ? 'Logging...' : '🔍'}
         </button>
-      )}
+      </div>
+
       <p className="text-body text-lg mb-6">
         Monitor and control real-time gym occupancy and session capacity.
       </p>
@@ -337,21 +348,21 @@ const SessionManagementPage = () => {
           {/* Manual Check-in/out */}
           <div className="flex flex-col items-center justify-center space-y-4 text-gray-600 mt-6">
             <div className="flex items-center space-x-6">
-              <button
-                className="flex items-center space-x-2 text-red-600 hover:text-red-800"
-                title="Manual Check-out"
-                onClick={handleDecrement}
-              >
-                <MinusCircleIcon className="w-8 h-8" />
-              </button>
-              <span className="text-lg">Manual Check-in/out</span>
-              <button
-                className="flex items-center space-x-2 text-green-600 hover:text-green-800"
-                title="Manual Check-in"
-                onClick={handleIncrement}
-              >
-                <PlusCircleIcon className="w-8 h-8" />
-              </button>
+            <button
+              className="flex items-center space-x-2 text-red-600 hover:text-red-800"
+              title="Manual Check-out"
+              onClick={handleDecrement}
+            >
+              <MinusCircleIcon className="w-8 h-8" />
+            </button>
+            <span className="text-lg">Manual Check-in/out</span>
+            <button
+              className="flex items-center space-x-2 text-green-600 hover:text-green-800"
+              title="Manual Check-in"
+              onClick={handleIncrement}
+            >
+              <PlusCircleIcon className="w-8 h-8" />
+            </button>
             </div>
             {pendingOccupancy !== null && (
               <div className="flex items-center space-x-4">
