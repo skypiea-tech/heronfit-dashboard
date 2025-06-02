@@ -27,9 +27,15 @@ export async function addAnnouncement(announcementData: {
   type?: string | null;
   published_at?: string | null;
 }) {
+  // Set status based on published_at
+  const now = new Date();
+  let status = 'sent';
+  if (announcementData.published_at && new Date(announcementData.published_at) > now) {
+    status = 'scheduled';
+  }
   const { data, error } = await supabase
     .from("announcements")
-    .insert([announcementData])
+    .insert([{ ...announcementData, status }])
     .select();
 
   if (error) {
