@@ -268,6 +268,7 @@ export async function debugLogAnalyticsForTodaySlots() {
       cancelled_count: 0, // Mock
       waitlist_count: 0, // Mock
       peak_time: start, // Mock as start time
+      max_capacity: slot.capacity || DEFAULT_MAXIMUM_CAPACITY,
     });
   }
 } 
