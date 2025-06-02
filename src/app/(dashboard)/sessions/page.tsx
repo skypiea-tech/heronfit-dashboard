@@ -273,7 +273,7 @@ const SessionManagementPage = () => {
   return (
     <div className="p-6 bg-background text-text min-h-screen">
       <h1 className="text-3xl font-header mb-2">Session Management</h1>
-      <p className="text-body text-lg mb-6">Monitor and manage gym session occupancy and capacity.</p>
+      <p className="text-body text-lg mb-6">Monitor and control real-time gym occupancy and session capacity.</p>
       
       {/* Sneaky debug button */}
       <div className="fixed top-2 right-2">
@@ -300,10 +300,6 @@ const SessionManagementPage = () => {
           {debugLoading ? 'Logging...' : '🔍'}
         </button>
       </div>
-
-      <p className="text-body text-lg mb-6">
-        Monitor and control real-time gym occupancy and session capacity.
-      </p>
 
       {/* Top Section: Current Occupancy, Max Capacity, Today's Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
