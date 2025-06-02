@@ -218,6 +218,38 @@ export class UserModel {
     }
   }
 
+  static async insertUserProfile(userId: string, formData: UserFormData): Promise<void> {
+    // Normalize role_status: treat "" as undefined
+    let roleStatus = formData.role_status;
+    if (!roleStatus) {
+      // Normalize user_role for all possible faculty/staff variants
+      const facultyRoles = ["FACULTY/STAFF", "FACULTY_STAFF", "STAFF/FACULTY", "STAFF_FACULTY"];
+      roleStatus = facultyRoles.includes(formData.user_role) ? "UNVERIFIED" : "VERIFIED";
+    }
+    const { error } = await supabase.from("users").insert({
+      id: userId,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      email_address: formData.email_address,
+      birthday: formData.birthday,
+      gender: formData.gender,
+      weight: formData.weight_unit === "lbs"
+        ? (parseFloat(formData.weight) * 0.453592).toFixed(2)
+        : formData.weight,
+      height: formData.height_unit === "ft"
+        ? (parseFloat(formData.height) * 30.48).toFixed(2)
+        : formData.height,
+      goal: formData.goal,
+      contact: formData.contact || null,
+      user_role: formData.user_role,
+      role_status: roleStatus,
+      has_session: null,
+      avatar: null,
+      verification_document_url: null,
+    });
+    if (error) throw error;
+  }
+
   private static formatTimeAgo(date: Date): string {
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);

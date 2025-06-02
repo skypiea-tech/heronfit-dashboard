@@ -88,4 +88,102 @@ export async function logDailyAnalyticsSummary({
   if (error) {
     throw new Error('Failed to log daily analytics: ' + error.message);
   }
+}
+
+/**
+ * Check the analytics table for the latest date/hour, and for each missing hour since then (up to now),
+ * aggregate session_occurrences data and log it to the analytics table.
+ * This allows the system to fill in analytics for any missed hours automatically.
+ */
+export async function logMissingHourlyAnalytics() {
+  // 1. Get the latest analytics entry
+  const { data: latest, error: latestErr } = await supabase
+    .from('analytics')
+    .select('date, start_time_of_day')
+    .order('date', { ascending: false })
+    .order('start_time_of_day', { ascending: false })
+    .limit(1);
+  if (latestErr) throw latestErr;
+
+  // 2. Determine the next hour to log
+  let nextDate: string;
+  let nextHour: number;
+  if (latest && latest.length > 0) {
+    nextDate = latest[0].date;
+    nextHour = parseInt(latest[0].start_time_of_day.slice(0, 2), 10) + 1;
+    if (nextHour >= 24) {
+      // Move to next day
+      const d = new Date(nextDate);
+      d.setDate(d.getDate() + 1);
+      nextDate = d.toISOString().slice(0, 10);
+      nextHour = 0;
+    }
+  } else {
+    // If no analytics yet, start from today 00:00
+    const now = new Date();
+    nextDate = now.toISOString().slice(0, 10);
+    nextHour = 0;
+  }
+
+  // 3. For each hour from nextDate/nextHour up to now, log analytics
+  const now = new Date();
+  let currentDate = nextDate;
+  let currentHour = nextHour;
+  while (true) {
+    const currentDateTime = new Date(`${currentDate}T${String(currentHour).padStart(2, '0')}:00:00`);
+    if (currentDateTime >= now) break;
+
+    // Aggregate session_occurrences for this hour
+    const startTime = String(currentHour).padStart(2, '0') + ':00';
+    const endTime = String(currentHour + 1).padStart(2, '0') + ':00';
+    const { data: occs, error: occErr } = await supabase
+      .from('session_occurrences')
+      .select('booked_slots, attended_count, override_capacity, status, waitlist_count, cancelled_count, start_time_of_day')
+      .eq('date', currentDate)
+      .gte('start_time_of_day', startTime)
+      .lt('start_time_of_day', endTime);
+    if (occErr) throw occErr;
+
+    // Aggregate values
+    let hourly_occupancy = 0, booked_count = 0, attended_count = 0, no_show_count = 0, cancelled_count = 0, waitlist_count = 0;
+    let peak_time = startTime;
+    let max_occupancy = 0;
+    (occs || []).forEach(occ => {
+      const occVal = (occ.booked_slots || 0) + (occ.attended_count || 0) + (occ.override_capacity || 0);
+      hourly_occupancy += occVal;
+      booked_count += occ.booked_slots || 0;
+      attended_count += occ.attended_count || 0;
+      cancelled_count += occ.cancelled_count || 0;
+      waitlist_count += occ.waitlist_count || 0;
+      const occTime = occ.start_time_of_day || startTime;
+      if (occVal > max_occupancy) {
+        max_occupancy = occVal;
+        peak_time = occTime;
+      }
+    });
+    no_show_count = booked_count - attended_count;
+
+    // Insert analytics row
+    await logHourlySessionAnalytics({
+      date: currentDate,
+      start_time_of_day: startTime,
+      end_time_of_day: endTime,
+      hourly_occupancy,
+      daily_occupancy: 0, // Can be filled in by another process if needed
+      booked_count,
+      no_show_count,
+      cancelled_count,
+      waitlist_count,
+      peak_time,
+    });
+
+    // Move to next hour
+    currentHour++;
+    if (currentHour >= 24) {
+      const d = new Date(currentDate);
+      d.setDate(d.getDate() + 1);
+      currentDate = d.toISOString().slice(0, 10);
+      currentHour = 0;
+    }
+  }
 } 
