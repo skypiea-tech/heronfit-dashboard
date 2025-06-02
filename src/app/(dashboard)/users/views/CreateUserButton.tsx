@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { UserFormData } from "../models/User";
 import { differenceInYears } from "date-fns";
 import { supabase } from "@/lib/supabaseClient";
@@ -29,6 +29,7 @@ export const CreateUserButton = () => {
   const [signupUserId, setSignupUserId] = useState<string | null>(null);
   const [otpResent, setOtpResent] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const calculateAge = (birthday: string) => {
     if (!birthday) return "";
@@ -419,12 +420,26 @@ export const CreateUserButton = () => {
                       <p className="font-mono text-sm">{generatePassword()}</p>
                     </div>
                   ) : (
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary text-base text-gray-900 pr-10"
+                        placeholder="Enter password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 focus:outline-none"
+                      >
+                        {showPassword ? (
+                          <EyeSlashIcon className="h-5 w-5" />
+                        ) : (
+                          <EyeIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
                 {error && <div className="text-red-600 text-sm">{error}</div>}
