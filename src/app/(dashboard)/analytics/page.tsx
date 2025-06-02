@@ -542,7 +542,7 @@ const AnalyticsPage = () => {
     <div className="p-6 bg-background text-text min-h-screen">
       <h1 className="text-3xl font-header mb-2">Data & Reports</h1>
       <p className="text-body text-lg mb-6">
-        Insights into gym usage, bookings, and user activity.
+        Data Visualization and Insights into gym usage, bookings, and user activity.
       </p>
 
       {/* Summary Metrics */}
@@ -678,7 +678,7 @@ const AnalyticsPage = () => {
 
         {/* Monthly Booking Trends (Line Chart) */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-header mb-4">Data Visualization</h2>
+          <h2 className="text-xl font-header mb-4">Booking Data Visualization</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart

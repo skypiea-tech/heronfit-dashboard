@@ -15,6 +15,7 @@ import {
   getCurrentGymOccupancy,
   debugLogAnalyticsForTodaySlots,
 } from "./models/SessionModel";
+import { logHourlySessionAnalytics } from "./models/AnalyticsLogger";
 
 const SHOW_DEBUG_ANALYTICS_BUTTON = false; // Set to false to hide debug analytics button
 
@@ -31,8 +32,10 @@ const SessionManagementPage = () => {
 
   // New state for editable occupancy, hints, and modal
   const [currentOccupancy, setCurrentOccupancy] = useState<number>(0);
+  const [pendingOccupancy, setPendingOccupancy] = useState<number | null>(null);
   const [hint, setHint] = useState<string>("");
   const [showBookedModal, setShowBookedModal] = useState(false);
+  const [showDecreaseModal, setShowDecreaseModal] = useState(false);
   const [modalValue, setModalValue] = useState<number>(0);
   const [showMaxCapModal, setShowMaxCapModal] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
@@ -71,6 +74,7 @@ const SessionManagementPage = () => {
         const slotInfo = getCurrentGymOccupancy(slots);
         setCurrentSlotInfo(slotInfo);
         setCurrentOccupancy(slotInfo.occupancy ?? 0);
+        setPendingOccupancy(slotInfo.occupancy ?? 0);
         setLoading(false);
       })
       .catch(() => {
@@ -85,41 +89,150 @@ const SessionManagementPage = () => {
   const currentSlotTime = currentSlotInfo?.slot?.time;
   const slotBooked = currentSlotInfo?.slot?.current ?? 0;
 
+  // Add effect to load persisted occupancy
+  useEffect(() => {
+    const loadPersistedOccupancy = async () => {
+      if (currentSlotInfo?.slot) {
+        const now = new Date();
+        const currentDate = now.toISOString().split('T')[0];
+        const key = `occupancy_${currentDate}_${currentSlotInfo.slot.time}`;
+        const persisted = localStorage.getItem(key);
+        if (persisted) {
+          setCurrentOccupancy(parseInt(persisted, 10));
+        }
+      }
+    };
+    loadPersistedOccupancy();
+  }, [currentSlotInfo]);
+
+  // Add effect to persist occupancy changes
+  useEffect(() => {
+    if (currentSlotInfo?.slot) {
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0];
+      const key = `occupancy_${currentDate}_${currentSlotInfo.slot.time}`;
+      localStorage.setItem(key, currentOccupancy.toString());
+    }
+  }, [currentOccupancy, currentSlotInfo]);
+
   // Handlers for plus/minus
   const handleIncrement = () => {
-    if (currentOccupancy >= maximumCapacity) {
+    if ((pendingOccupancy ?? currentOccupancy) >= maximumCapacity) {
       setHint("Cannot exceed gym maximum capacity.");
       return;
     }
-    setCurrentOccupancy((prev) => prev + 1);
+    setPendingOccupancy((prev) => (prev ?? currentOccupancy) + 1);
     setHint("");
   };
 
   const handleDecrement = () => {
-    if (currentOccupancy <= 0) {
+    const currentValue = pendingOccupancy ?? currentOccupancy;
+    if (currentValue <= 0) {
       setHint("Cannot go below zero.");
       return;
     }
-    if (currentOccupancy > slotBooked && currentOccupancy - 1 < slotBooked) {
+    
+    // If trying to decrease below booked slots, show confirmation modal
+    if (currentValue > slotBooked && currentValue - 1 < slotBooked) {
       setModalValue(slotBooked);
-      setShowBookedModal(true);
+      setShowDecreaseModal(true);
       return;
     }
-    setCurrentOccupancy((prev) => prev - 1);
+    
+    setPendingOccupancy(currentValue - 1);
     setHint("");
   };
 
   // Modal confirm handler
   const handleModalConfirm = () => {
-    setCurrentOccupancy(modalValue);
+    setPendingOccupancy(modalValue);
     setShowBookedModal(false);
+    setShowDecreaseModal(false);
     setHint("");
   };
 
   // Modal cancel handler
   const handleModalCancel = () => {
     setShowBookedModal(false);
+    setShowDecreaseModal(false);
+    setPendingOccupancy(null);
   };
+
+  // Add new handler for confirming occupancy changes
+  const handleConfirmOccupancy = async () => {
+    if (pendingOccupancy === null) return;
+    
+    setCurrentOccupancy(pendingOccupancy);
+    setPendingOccupancy(null);
+    setHint("");
+
+    // Log analytics for the current timeslot
+    if (currentSlotInfo?.slot) {
+      const now = new Date();
+      const currentDate = now.toISOString().split('T')[0];
+      const [hours, minutes] = currentSlotInfo.slot.time.split(':');
+      
+      try {
+        await logHourlySessionAnalytics({
+          date: currentDate,
+          start_time_of_day: currentSlotInfo.slot.time,
+          end_time_of_day: `${String(parseInt(hours) + 1).padStart(2, '0')}:${minutes}`,
+          hourly_occupancy: pendingOccupancy,
+          daily_occupancy: 0,
+          booked_count: currentSlotInfo.slot.current || 0,
+          no_show_count: 0,
+          cancelled_count: 0,
+          waitlist_count: 0,
+          peak_time: currentSlotInfo.slot.time,
+        });
+      } catch (error) {
+        console.error('Failed to log analytics:', error);
+        setHint('Failed to log analytics. Please try again.');
+      }
+    }
+  };
+
+  // Add effect to log analytics when timeslot changes
+  useEffect(() => {
+    const checkAndLogTimeslot = async () => {
+      if (currentSlotInfo?.slot) {
+        const now = new Date();
+        const [hours, minutes] = currentSlotInfo.slot.time.split(':');
+        const slotEndTime = new Date();
+        slotEndTime.setHours(parseInt(hours) + 1, parseInt(minutes), 0, 0);
+
+        // If we're past the slot end time, log the final occupancy
+        if (now >= slotEndTime) {
+          const currentDate = now.toISOString().split('T')[0];
+          try {
+            await logHourlySessionAnalytics({
+              date: currentDate,
+              start_time_of_day: currentSlotInfo.slot.time,
+              end_time_of_day: `${String(parseInt(hours) + 1).padStart(2, '0')}:${minutes}`,
+              hourly_occupancy: currentOccupancy,
+              daily_occupancy: 0,
+              booked_count: currentSlotInfo.slot.current || 0,
+              no_show_count: 0,
+              cancelled_count: 0,
+              waitlist_count: 0,
+              peak_time: currentSlotInfo.slot.time,
+            });
+          } catch (error) {
+            console.error('Failed to log analytics for ended timeslot:', error);
+          }
+        }
+      }
+    };
+
+    // Check every minute
+    const interval = setInterval(checkAndLogTimeslot, 60000);
+    return () => clearInterval(interval);
+  }, [currentSlotInfo, currentOccupancy]);
+
+  // Initialize pendingOccupancy when currentOccupancy changes
+  useEffect(() => {
+    setPendingOccupancy(currentOccupancy);
+  }, [currentOccupancy]);
 
   // Handler for updating capacity
   const handleUpdateCapacity = () => {
@@ -222,22 +335,41 @@ const SessionManagementPage = () => {
           )}
 
           {/* Manual Check-in/out */}
-          <div className="flex items-center justify-center space-x-6 text-gray-600 mt-6">
-            <button
-              className="flex items-center space-x-2 text-red-600 hover:text-red-800"
-              title="Manual Check-out"
-              onClick={handleDecrement}
-            >
-              <MinusCircleIcon className="w-8 h-8" />
-            </button>
-            <span className="text-lg">Manual Check-in/out</span>
-            <button
-              className="flex items-center space-x-2 text-green-600 hover:text-green-800"
-              title="Manual Check-in"
-              onClick={handleIncrement}
-            >
-              <PlusCircleIcon className="w-8 h-8" />
-            </button>
+          <div className="flex flex-col items-center justify-center space-y-4 text-gray-600 mt-6">
+            <div className="flex items-center space-x-6">
+              <button
+                className="flex items-center space-x-2 text-red-600 hover:text-red-800"
+                title="Manual Check-out"
+                onClick={handleDecrement}
+              >
+                <MinusCircleIcon className="w-8 h-8" />
+              </button>
+              <span className="text-lg">Manual Check-in/out</span>
+              <button
+                className="flex items-center space-x-2 text-green-600 hover:text-green-800"
+                title="Manual Check-in"
+                onClick={handleIncrement}
+              >
+                <PlusCircleIcon className="w-8 h-8" />
+              </button>
+            </div>
+            {pendingOccupancy !== null && (
+              <div className="flex items-center space-x-4">
+                <span className="text-lg font-medium">Pending: {pendingOccupancy}</span>
+                <button
+                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-accent transition-colors"
+                  onClick={handleConfirmOccupancy}
+                >
+                  Confirm Occupancy
+                </button>
+                <button
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors"
+                  onClick={handleModalCancel}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Booked modal */}
@@ -276,6 +408,30 @@ const SessionManagementPage = () => {
                     className="px-3 py-1 rounded bg-primary text-white hover:bg-accent"
                     onClick={handleModalConfirm}
                   >Confirm</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Decrease below booked modal */}
+          {showDecreaseModal && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg w-80">
+                <h3 className="text-lg font-header mb-2">Warning: Decreasing Below Booked Sessions</h3>
+                <p className="text-sm text-gray-700 mb-4">
+                  You are attempting to decrease the occupancy below the number of booked sessions ({slotBooked}).<br />
+                  This is not recommended as it may indicate missing check-ins.<br />
+                  Are you sure you want to proceed?
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                    onClick={handleModalCancel}
+                  >Cancel</button>
+                  <button
+                    className="px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+                    onClick={handleModalConfirm}
+                  >Proceed Anyway</button>
                 </div>
               </div>
             </div>
