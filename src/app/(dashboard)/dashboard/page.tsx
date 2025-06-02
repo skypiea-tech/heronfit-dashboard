@@ -191,7 +191,7 @@ const DashboardPage = () => {
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-semibold text-gray-700">
-              Active Users
+              Current Active Users
             </h3>
             {/* Placeholder Icon */}
             <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
