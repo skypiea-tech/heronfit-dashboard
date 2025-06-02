@@ -13,6 +13,8 @@ import { supabase } from "@/lib/supabaseClient"; // Import the Supabase client
 import { Dialog } from "@headlessui/react";
 import { differenceInYears, format } from "date-fns";
 import { CreateUserButton } from "./views/CreateUserButton";
+import { UserStatusPopup } from './views/UserStatusPopup';
+import { UserStatusModel, UserStatus, UserStatusOverride } from './models/UserStatus';
 
 // Define a type for user data (adjust according to your Supabase schema)
 interface User {
@@ -20,12 +22,13 @@ interface User {
   name: string; // Will be derived from first_name and last_name
   email: string;
   user_role: "STUDENT" | "FACULTY/STAFF" | "PUBLIC"; // Updated to match the actual roles
-  status: "active" | "idle" | "inactive"; // Updated to include idle status
+  status: UserStatus | UserStatusOverride;
   bookings: number; // This will likely need to be fetched from a bookings table
   last_active: string; // This will likely be a timestamp and need formatting
   avatar?: string | null;
   first_name?: string;
   last_name?: string;
+  last_activity_date?: Date | null;
 }
 
 // Add new interface for user details
@@ -41,6 +44,13 @@ interface UserDetails extends User {
   contact?: string;
   role_status?: string;
   avatar?: string | null;
+}
+
+// Update the changes type in ConfirmChangesModal
+interface Change {
+  field: string;
+  oldValue: string | number | null | undefined;
+  newValue: string | number | null | undefined;
 }
 
 // Helper function to format time difference
@@ -243,7 +253,7 @@ const ViewUserDetails = ({ user, isOpen, onClose }: { user: UserDetails | null, 
 };
 
 // ConfirmChangesModal component
-const ConfirmChangesModal = ({ open, onClose, onConfirm, changes }: { open: boolean, onClose: () => void, onConfirm: () => void, changes: { field: string, oldValue: string | number | undefined | null, newValue: string | number | undefined | null }[] }) => (
+const ConfirmChangesModal = ({ open, onClose, onConfirm, changes }: { open: boolean, onClose: () => void, onConfirm: () => void, changes: Change[] }) => (
   <Dialog open={open} onClose={onClose} className="fixed inset-0 z-20 overflow-y-auto">
     <div className="flex items-center justify-center min-h-screen">
       <div className="fixed inset-0 bg-black opacity-30" />
@@ -254,7 +264,7 @@ const ConfirmChangesModal = ({ open, onClose, onConfirm, changes }: { open: bool
           <ul className="space-y-2">
             {changes.map((change, idx) => (
               <li key={idx} className="text-sm text-gray-800">
-                <span className="font-medium text-gray-600">{change.field}:</span> <span className="text-red-600 line-through">{change.oldValue === '' ? <em>empty</em> : String(change.oldValue)}</span> <span className="mx-2">â†’</span> <span className="text-green-700 font-semibold">{change.newValue === '' ? <em>empty</em> : String(change.newValue)}</span>
+                <span className="font-medium text-gray-600">{change.field}:</span> <span className="text-red-600 line-through">{change.oldValue === null ? <em>empty</em> : String(change.oldValue)}</span> <span className="mx-2">â†’</span> <span className="text-green-700 font-semibold">{change.newValue === null ? <em>empty</em> : String(change.newValue)}</span>
               </li>
             ))}
           </ul>
@@ -272,7 +282,7 @@ const ConfirmChangesModal = ({ open, onClose, onConfirm, changes }: { open: bool
 const EditUserDetails = ({ user, isOpen, onClose, onConfirm }: { user: UserDetails | null, isOpen: boolean, onClose: () => void, onConfirm: (updated: Partial<UserDetails>) => void }) => {
   const [form, setForm] = useState<Partial<UserDetails>>(user || {});
   const [showConfirm, setShowConfirm] = useState(false);
-  const [changes, setChanges] = useState<{ field: string, oldValue: string | number | undefined | null, newValue: string | number | undefined | null }[]>([]);
+  const [changes, setChanges] = useState<Change[]>([]);
   useEffect(() => { setForm(user || {}); }, [user]);
 
   if (!user) return null;
@@ -297,13 +307,13 @@ const EditUserDetails = ({ user, isOpen, onClose, onConfirm }: { user: UserDetai
 
   const handleShowConfirm = () => {
     // Compare user and form, build changes array
-    const changed: { field: string, oldValue: string | number | undefined | null, newValue: string | number | undefined | null }[] = [];
+    const changed: Change[] = [];
     (Object.keys(fieldLabels) as (keyof UserDetails)[]).forEach((key) => {
       if (form[key] !== user[key]) {
         changed.push({
           field: fieldLabels[key],
-          oldValue: user[key],
-          newValue: form[key],
+          oldValue: user[key]?.toString() || null,
+          newValue: form[key]?.toString() || null,
         });
       }
     });
@@ -448,6 +458,14 @@ const UserManagementPage = () => {
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [isEditDetailsOpen, setIsEditDetailsOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserDetails | null>(null);
+  const [selectedUserForStatus, setSelectedUserForStatus] = useState<User | null>(null);
+  const [isStatusPopupOpen, setIsStatusPopupOpen] = useState(false);
+
+  // Add a helper function to normalize status for filtering
+  const normalizeStatusForFilter = (status: UserStatus | UserStatusOverride): UserStatus => {
+    if (!status) return "inactive";
+    return status.replace("_override", "") as UserStatus;
+  };
 
   // Filter users based on search term and filters
   const filteredUsers = users.filter((user) => {
@@ -459,9 +477,11 @@ const UserManagementPage = () => {
     // Handle status filtering
     let matchesStatus = true;
     if (statusFilter === "default") {
-      matchesStatus = user.status === "active" || user.status === "idle";
+      const normalizedStatus = normalizeStatusForFilter(user.status);
+      matchesStatus = normalizedStatus === "active" || normalizedStatus === "idle";
     } else if (statusFilter) {
-      matchesStatus = user.status === statusFilter;
+      const normalizedStatus = normalizeStatusForFilter(user.status);
+      matchesStatus = normalizedStatus === statusFilter;
     }
 
     // Handle role filtering with flexible matching for FACULTY/STAFF
@@ -471,116 +491,104 @@ const UserManagementPage = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // First fetch users
-        const { data: usersData, error: usersError } = await supabase
-          .from("users")
-          .select("id, first_name, last_name, email_address, has_session, user_role, avatar");
+      // First fetch users
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email_address, has_session, user_role, avatar, activity_status");
 
-        if (usersError) {
-          throw new Error(`Failed to fetch users: ${usersError.message}`);
+      if (usersError) throw usersError;
+
+      if (!usersData) {
+        throw new Error("No user data received");
+      }
+
+      // Fetch sessions with created_at
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from("bookings")
+        .select("user_id, created_at");
+
+      if (sessionsError) {
+        throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
+      }
+
+      // Fetch workouts with timestamp
+      const { data: workoutsData, error: workoutsError } = await supabase
+        .from("workouts")
+        .select("user_id, timestamp");
+
+      if (workoutsError) {
+        throw new Error(`Failed to fetch workouts: ${workoutsError.message}`);
+      }
+
+      // Create a map of user_id to session count
+      const sessionCounts = (sessionsData || []).reduce((acc: Record<string, number>, curr: { user_id: string }) => {
+        acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Create a map of user_id to last activity timestamp
+      const lastActivityMap: Record<string, Date> = {};
+      
+      // Process sessions timestamps
+      (sessionsData || []).forEach((session) => {
+        if (session.created_at) {
+          const timestamp = new Date(session.created_at);
+          if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
+            lastActivityMap[session.user_id] = timestamp;
+          }
         }
+      });
 
-        if (!usersData) {
-          throw new Error("No user data received");
+      // Process workouts timestamps
+      (workoutsData || []).forEach((workout) => {
+        if (workout.timestamp) {
+          const timestamp = new Date(workout.timestamp);
+          if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
+            lastActivityMap[workout.user_id] = timestamp;
+          }
         }
+      });
 
-        // Fetch sessions with created_at
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from("bookings")
-          .select("user_id, created_at");
-
-        if (sessionsError) {
-          throw new Error(`Failed to fetch sessions: ${sessionsError.message}`);
-        }
-
-        // Fetch workouts with timestamp
-        const { data: workoutsData, error: workoutsError } = await supabase
-          .from("workouts")
-          .select("user_id, timestamp");
-
-        if (workoutsError) {
-          throw new Error(`Failed to fetch workouts: ${workoutsError.message}`);
-        }
-
-        // Create a map of user_id to session count
-        const sessionCounts = (sessionsData || []).reduce((acc: Record<string, number>, curr: { user_id: string }) => {
-          acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
-          return acc;
-        }, {});
-
-        // Create a map of user_id to last activity timestamp
-        const lastActivityMap: Record<string, Date> = {};
+      // Map the fetched data to your User interface
+      const fetchedUsers: User[] = (usersData || []).map((user) => {
+        const lastActivity = lastActivityMap[user.id];
+        let status: UserStatus | UserStatusOverride = user.activity_status || "inactive";
         
-        // Process sessions timestamps
-        (sessionsData || []).forEach((session) => {
-          if (session.created_at) {
-            const timestamp = new Date(session.created_at);
-            if (!lastActivityMap[session.user_id] || timestamp > lastActivityMap[session.user_id]) {
-              lastActivityMap[session.user_id] = timestamp;
-            }
-          }
-        });
+        // If no activity_status is set, determine it based on last activity
+        if (!user.activity_status) {
+          status = UserStatusModel.determineStatus(lastActivity);
+        }
 
-        // Process workouts timestamps
-        (workoutsData || []).forEach((workout) => {
-          if (workout.timestamp) {
-            const timestamp = new Date(workout.timestamp);
-            if (!lastActivityMap[workout.user_id] || timestamp > lastActivityMap[workout.user_id]) {
-              lastActivityMap[workout.user_id] = timestamp;
-            }
-          }
-        });
-
-        // Map the fetched data to your User interface
-        const fetchedUsers: User[] = (usersData || []).map((user) => {
-          const lastActivity = lastActivityMap[user.id];
-          let status: "active" | "idle" | "inactive" = "inactive";
-          
-          if (lastActivity) {
-            const sixMonthsAgo = new Date();
-            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            
-            const oneDayAgo = new Date();
-            oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-            
-            if (lastActivity >= oneDayAgo) {
-              status = "active";
-            } else if (lastActivity >= sixMonthsAgo) {
-              status = "idle";
-            } else {
-              status = "inactive";
-            }
-          }
-
-          return {
+        return {
           id: user.id,
           name: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
           email: user.email_address || "No email provided",
           user_role: user.user_role || "PUBLIC",
-            status: status,
+          status: status,
           bookings: sessionCounts[user.id] || 0,
           last_active: lastActivityMap[user.id] ? formatTimeAgo(lastActivityMap[user.id]) : "Never",
-            avatar: user.avatar || null,
-            first_name: user.first_name || "",
-            last_name: user.last_name || ""
-          };
-        });
+          avatar: user.avatar || null,
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          last_activity_date: lastActivity
+        };
+      });
 
-        setUsers(fetchedUsers);
-      } catch (error) {
-        console.error("Error in fetchUsers:", error);
-        setError(error instanceof Error ? error.message : "An unexpected error occurred while fetching users");
-      } finally {
-        setLoading(false);
-      }
-    };
+      setUsers(fetchedUsers);
+    } catch (error) {
+      console.error("Error in fetchUsers:", error);
+      setError(error instanceof Error ? error.message : "An unexpected error occurred while fetching users");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -646,6 +654,12 @@ const UserManagementPage = () => {
     } catch {
       alert("Failed to update user. Please try again.");
     }
+  };
+
+  // Add handler for status change
+  const handleStatusClick = (user: User) => {
+    setSelectedUserForStatus(user);
+    setIsStatusPopupOpen(true);
   };
 
   if (loading) {
@@ -767,19 +781,12 @@ const UserManagementPage = () => {
                   })()}
                 </td>
                 <td className="py-4 px-2">
-                  <span
-                      className={`inline-flex items-center justify-center w-20 px-2 py-1 rounded-full text-xs font-medium ${
-                      user.status === "active"
-                        ? "bg-green-100 text-green-800"
-                          : user.status === "idle"
-                          ? "bg-yellow-100 text-yellow-800"
-                        : user.status === "inactive"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-gray-200 text-gray-800"
-                    }`}
+                  <button
+                    onClick={() => handleStatusClick(user)}
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${UserStatusModel.getStatusColor(user.status)}`}
                   >
-                    {user.status}
-                  </span>
+                    {UserStatusModel.getStatusLabel(user.status)}
+                  </button>
                 </td>
                 <td className="py-4 px-2">{user.bookings}</td>
                 <td className="py-4 px-2 text-gray-500">{user.last_active}</td>
@@ -848,6 +855,21 @@ const UserManagementPage = () => {
         onClose={() => { setIsEditDetailsOpen(false); setEditUser(null); }}
         onConfirm={handleConfirmEdit}
       />
+
+      {/* Add the status popup */}
+      {selectedUserForStatus && (
+        <UserStatusPopup
+          isOpen={isStatusPopupOpen}
+          onClose={() => {
+            setIsStatusPopupOpen(false);
+            setSelectedUserForStatus(null);
+          }}
+          userId={selectedUserForStatus.id}
+          currentStatus={selectedUserForStatus.status}
+          lastActivity={selectedUserForStatus.last_activity_date || null}
+          onStatusChange={fetchUsers}
+        />
+      )}
     </div>
   );
 };
