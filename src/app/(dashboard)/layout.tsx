@@ -27,8 +27,8 @@ const DashboardLayout = ({
   const navLinks = [
     { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
     { name: "User Management", href: "/users", icon: UsersIcon },
-    { name: "Bookings", href: "/bookings", icon: CalendarIcon },
-    { name: "Gym Occupancy", href: "/sessions", icon: ScaleIcon },
+    { name: "Booking Management", href: "/bookings", icon: CalendarIcon },
+    { name: "Session Management", href: "/sessions", icon: ScaleIcon },
     { name: "Announcements", href: "/announcements", icon: MegaphoneIcon },
     { name: "Data & Reports", href: "/analytics", icon: ChartBarIcon },
   ];

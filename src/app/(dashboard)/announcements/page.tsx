@@ -32,6 +32,9 @@ const AnnouncementsPage: React.FC = () => {
   const [archivedAnnouncements, setArchivedAnnouncements] = useState<
     Announcement[]
   >([]);
+  const [scheduledAnnouncements, setScheduledAnnouncements] = useState<
+    Announcement[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -55,18 +58,29 @@ const AnnouncementsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const active = (await getAnnouncements({
-        includeArchived: false,
-      })) as Announcement[];
-      const archived = (await getAnnouncements({
-        includeArchived: true,
-      })) as Announcement[];
-      setActiveAnnouncements(active.filter((a) => !a.archived));
+      const all = (await getAnnouncements({ includeArchived: false })) as Announcement[];
+      const now = new Date();
+      setActiveAnnouncements(
+        all.filter(
+          (a) =>
+            !a.archived &&
+            (!a.published_at || new Date(a.published_at) <= now)
+        )
+      );
+      setScheduledAnnouncements(
+        all.filter(
+          (a) =>
+            !a.archived &&
+            a.published_at && new Date(a.published_at) > now
+        )
+      );
+      const archived = (await getAnnouncements({ includeArchived: true })) as Announcement[];
       setArchivedAnnouncements(archived.filter((a) => a.archived));
     } catch (err: any) {
       setError(err.message || "Failed to fetch announcements.");
       setActiveAnnouncements([]);
       setArchivedAnnouncements([]);
+      setScheduledAnnouncements([]);
     } finally {
       setLoading(false);
     }
@@ -230,9 +244,9 @@ const AnnouncementsPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-100 text-gray-800 min-h-screen">
-      <h1 className="text-3xl font-bold mb-2">Create Targeted Announcements</h1>
-      <p className="text-lg mb-6">
+    <div className="p-6 bg-background text-text min-h-screen">
+      <h1 className="text-3xl font-header mb-2">Announcement Management</h1>
+      <p className="text-body text-lg mb-6">
         Create and manage announcements for gym users.
       </p>
       <div className="mb-4">
@@ -241,14 +255,14 @@ const AnnouncementsPage: React.FC = () => {
             type="checkbox"
             checked={showArchived}
             onChange={() => setShowArchived((prev) => !prev)}
-            className="form-checkbox"
+            className="form-checkbox accent-primary"
           />
-          <span className="ml-2">Show Archived Announcements</span>
+          <span className="ml-2 text-base">Show Archived Announcements</span>
         </label>
       </div>
       {/* Create New Announcement */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-bold mb-4">Announcement Types</h2>
+        <h2 className="text-xl font-header mb-4">Create New Announcement</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label
@@ -264,7 +278,7 @@ const AnnouncementsPage: React.FC = () => {
               value={newAnnouncement.title}
               onChange={handleInputChange}
               placeholder="Enter announcement title..."
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
             />
           </div>
           <div>
@@ -279,7 +293,7 @@ const AnnouncementsPage: React.FC = () => {
               id="type"
               value={newAnnouncement.type}
               onChange={handleInputChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
             >
               <option value="information">Information</option>
               <option value="alert">Alert</option>
@@ -300,12 +314,10 @@ const AnnouncementsPage: React.FC = () => {
             value={newAnnouncement.message}
             onChange={handleInputChange}
             placeholder="Enter your announcement message..."
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
           ></textarea>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 items-center">
-          {" "}
-          {/* Added mb-4 and items-center */}
           <div>
             <label
               htmlFor="targetAudience"
@@ -316,27 +328,24 @@ const AnnouncementsPage: React.FC = () => {
             <select
               name="targetAudience"
               id="targetAudience"
-              value={newAnnouncement.targetAudience[0]} // Assuming single select for now based on UI
+              value={newAnnouncement.targetAudience[0]}
               onChange={handleAudienceChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
             >
               <option value="all">All Users</option>
-              {/* Add other audience options based on PRD/Supabase data */}
               <option value="students">Students</option>
               <option value="faculty">Faculty</option>
               <option value="staff">Staff</option>
             </select>
           </div>
           <div className="flex items-center h-full">
-            {" "}
-            {/* Added h-full to stretch checkbox container */}
             <input
               id="scheduleForLater"
               name="scheduleForLater"
               type="checkbox"
               checked={newAnnouncement.scheduleForLater}
               onChange={handleInputChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" // Use blue-600 for checkbox and blue-500 for focus
+              className="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary"
             />
             <label
               htmlFor="scheduleForLater"
@@ -346,7 +355,6 @@ const AnnouncementsPage: React.FC = () => {
             </label>
           </div>
         </div>
-        {/* Schedule Date and Time (conditionally rendered) */}
         {newAnnouncement.scheduleForLater && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
@@ -363,7 +371,7 @@ const AnnouncementsPage: React.FC = () => {
                 value={newAnnouncement.scheduledDate}
                 onChange={handleInputChange}
                 required={newAnnouncement.scheduleForLater}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
               />
             </div>
             <div>
@@ -380,7 +388,7 @@ const AnnouncementsPage: React.FC = () => {
                 value={newAnnouncement.scheduledTime}
                 onChange={handleInputChange}
                 required={newAnnouncement.scheduleForLater}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500" // Use blue-500 for focus ring/border
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-primary focus:border-primary text-base"
               />
             </div>
           </div>
@@ -388,7 +396,7 @@ const AnnouncementsPage: React.FC = () => {
         <div className="flex justify-end">
           <button
             onClick={handleSendAnnouncement}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" // Use indigo for button color matching screenshot
+            className="inline-flex items-center px-6 py-2 border border-transparent text-base font-semibold rounded-md shadow-sm text-white bg-primary hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
             disabled={
               loading ||
               !newAnnouncement.title ||
@@ -398,27 +406,29 @@ const AnnouncementsPage: React.FC = () => {
                   !newAnnouncement.scheduledTime))
             }
           >
-            <PaperAirplaneIcon
-              className="-ml-1 mr-2 h-5 w-5"
-              aria-hidden="true"
-            />
+            <PaperAirplaneIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
             Send Now
           </button>
         </div>
         {error && (
-          <p className="text-red-500 text-sm">
+          <p className="text-red-500 text-sm mt-2">
             Error sending announcement: {error}
           </p>
-        )}{" "}
-        {/* Display send error */}
+        )}
       </div>
       {/* Announcement List */}
       <AnnouncementList
         announcements={activeAnnouncements}
         onArchive={handleArchive}
       />
+      {scheduledAnnouncements.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-header mb-4">Scheduled Announcements</h2>
+          <AnnouncementList announcements={scheduledAnnouncements} />
+        </div>
+      )}
       <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Announcement History</h2>
+        <h2 className="text-xl font-header mb-4">Archived Announcements</h2>
         <AnnouncementList
           announcements={archivedAnnouncements}
           onUnarchive={handleUnarchive}
