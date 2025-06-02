@@ -342,18 +342,18 @@ const AnalyticsPage = () => {
       const prevMonthEnd = now.minus({ months: 1 }).endOf('month').toISODate();
 
       // 1. Total Bookings This Month & Last Month
-      const { data: bookingsThisMonth } = await supabase
+      const { count: bookingsThisMonthCount } = await supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .gte('session_date', monthStart)
         .lte('session_date', monthEnd);
-      const { data: bookingsLastMonth } = await supabase
+      const { count: bookingsLastMonthCount } = await supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .gte('session_date', prevMonthStart)
         .lte('session_date', prevMonthEnd);
-      const totalBookingsThisMonth = bookingsThisMonth?.length || 0;
-      const totalBookingsLastMonth = bookingsLastMonth?.length || 0;
+      const totalBookingsThisMonth = bookingsThisMonthCount || 0;
+      const totalBookingsLastMonth = bookingsLastMonthCount || 0;
       const bookingsChange = totalBookingsLastMonth ? ((totalBookingsThisMonth - totalBookingsLastMonth) / totalBookingsLastMonth) * 100 : 0;
 
       // 2. Average Daily Attendance (from analytics table, sum hourly_occupancy per day, average over days)
@@ -446,7 +446,7 @@ const AnalyticsPage = () => {
           value: `${noShowRateThisMonth.toFixed(1)}%`,
           description: "No-Show Rate",
           change: `${noShowChange >= 0 ? "+" : ""}${noShowChange.toFixed(1)}%`,
-          changeType: noShowChange < 0 ? "decrease" : "increase",
+          changeType: noShowChange > 0 ? "increase" : "decrease",
         },
         {
           value: `${peakUtilizationThisMonth.toFixed(0)}%`,
