@@ -11,6 +11,7 @@ import {
   MegaphoneIcon,
   ChartBarIcon,
   ArrowLeftStartOnRectangleIcon,
+  TicketIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -53,7 +54,7 @@ const DashboardLayout = ({
       if (!session) {
         setIsAuthenticated(false);
         setIsLoading(false);
-        if (!pathname.startsWith("/login")) {
+        if (!(pathname ?? "").startsWith("/login")) {
           router.replace("/login");
         }
       } else {
@@ -68,7 +69,7 @@ const DashboardLayout = ({
         if (!session) {
           setIsAuthenticated(false);
           setIsLoading(false);
-          if (!pathname.startsWith("/login")) {
+          if (!(pathname ?? "").startsWith("/login")) {
             router.replace("/login");
           }
         } else {
@@ -107,7 +108,7 @@ const DashboardLayout = ({
         {/* Navigation */}
         <nav className="space-y-2 flex-grow">
           {navLinks.map((link) => {
-            const isActive = pathname === link.href;
+            const isActive = (pathname ?? "") === link.href;
             return (
               <Link
                 key={link.name}
@@ -124,6 +125,16 @@ const DashboardLayout = ({
             );
           })}
         </nav>
+        {/* Temporary Issue Ticket Button at the bottom */}
+        <div className="mb-6">
+          <Link
+            href="/user-tickets"
+            className={`flex items-center space-x-3 p-2 rounded-md transition-colors text-text hover:bg-secondary`}
+          >
+            <TicketIcon className="w-5 h-5" />
+            <span>Issue Ticket</span>
+          </Link>
+        </div>
 
         {/* Admin User Info (Placeholder) */}
         <div className="mt-auto">

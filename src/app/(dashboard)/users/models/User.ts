@@ -152,6 +152,21 @@ export class UserModel {
     }
   }
 
+  static async getUserByEmail(email: string): Promise<UserDetails | null> {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email_address", email)
+        .single();
+      if (userError) throw userError;
+      return userData as UserDetails;
+    } catch (error) {
+      console.error("Error in getUserByEmail:", error);
+      return null;
+    }
+  }
+
   static async createUser(formData: UserFormData, password: string): Promise<void> {
     try {
       // Create auth user
