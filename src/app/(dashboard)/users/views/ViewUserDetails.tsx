@@ -151,7 +151,11 @@ export const ViewUserDetails = ({ user, isOpen, onClose }: ViewUserDetailsProps)
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-500">User Role</label>
-                    <p className="mt-1 text-base text-gray-900">{UserRoleModel.getRoleLabel(user.user_role)}</p>
+                    <p className="mt-1 text-base text-gray-900">{
+                      UserRoleModel.getRoleLabel(
+                        user.user_role === "FACULTY/STAFF" ? "FACULTY_STAFF" : user.user_role
+                      )
+                    }</p>
                   </div>
                   {user.role_status && (
                     <div>
