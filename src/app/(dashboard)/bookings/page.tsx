@@ -244,7 +244,7 @@ const BookingManagementPage = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Comprehensive Booking Overview</h1>
+      <h1 className="text-3xl font-header mb-2">Booking Management</h1>
       <p className="text-body text-lg mb-6">Monitor and manage gym session bookings.</p>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg shadow">

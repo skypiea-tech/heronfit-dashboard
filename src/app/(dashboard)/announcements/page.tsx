@@ -245,7 +245,7 @@ const AnnouncementsPage: React.FC = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Announcement Management</h1>
+      <h1 className="text-3xl font-header mb-2">Announcements</h1>
       <p className="text-body text-lg mb-6">
         Create and manage announcements for gym users.
       </p>

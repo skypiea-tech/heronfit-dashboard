@@ -180,7 +180,7 @@ const DashboardPage = () => {
 
   return (
     <div className="">
-      <h1 className="text-3xl font-header mb-2">Summary Statistics</h1>
+      <h1 className="text-3xl font-header mb-2">Dashboard</h1>
       <p className="text-body text-lg mb-6">
         Welcome back! Here&apos;s what&apos;s happening at UMak Gym today.
       </p>

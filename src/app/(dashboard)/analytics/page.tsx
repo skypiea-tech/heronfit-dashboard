@@ -540,7 +540,7 @@ const AnalyticsPage = () => {
 
   return (
     <div className="p-6 bg-background text-text min-h-screen">
-      <h1 className="text-3xl font-header mb-2">Booking Data</h1>
+      <h1 className="text-3xl font-header mb-2">Data & Reports</h1>
       <p className="text-body text-lg mb-6">
         Insights into gym usage, bookings, and user activity.
       </p>
