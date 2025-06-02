@@ -21,6 +21,14 @@ interface Booking {
   } | null;
 }
 
+// Add interface for yesterday's stats
+interface YesterdayStats {
+  activeUsers: number;
+  bookingsToday: number;
+  currentOccupancy: number;
+  pendingApprovals: number;
+}
+
 const DashboardPage = () => {
   const router = useRouter();
   const [stats, setStats] = React.useState({
@@ -38,6 +46,65 @@ const DashboardPage = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Helper function to get yesterday's date in YYYY-MM-DD format
+  const getYesterdayDate = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  };
+
+  // Helper function to calculate percentage change
+  const calculatePercentageChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  // Function to fetch yesterday's stats
+  const fetchYesterdayStats = async (): Promise<YesterdayStats> => {
+    const yesterdayStr = getYesterdayDate();
+    
+    // Active users yesterday
+    const { data: yesterdayActiveUsers, error: yesterdayActiveErr } = await supabase
+      .from("bookings")
+      .select("user_id", { count: "exact", head: true })
+      .eq("session_date", yesterdayStr)
+      .eq("status", "confirmed");
+    if (yesterdayActiveErr) throw yesterdayActiveErr;
+
+    // Bookings yesterday
+    const { count: yesterdayBookings, error: yesterdayBookingsErr } = await supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("session_date", yesterdayStr);
+    if (yesterdayBookingsErr) throw yesterdayBookingsErr;
+
+    // Occupancy yesterday
+    const { data: yesterdayOccs, error: yesterdayOccErr } = await supabase
+      .from("session_occurrences")
+      .select("booked_slots, attended_count, override_capacity")
+      .eq("date", yesterdayStr);
+    if (yesterdayOccErr) throw yesterdayOccErr;
+    const yesterdayOccupancy = (yesterdayOccs || []).reduce(
+      (sum, o) => sum + (o.booked_slots || 0) + (o.attended_count || 0) + (o.override_capacity || 0),
+      0
+    );
+
+    // Pending approvals yesterday
+    const { count: yesterdayPending, error: yesterdayPendingErr } = await supabase
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .eq("session_date", yesterdayStr);
+    if (yesterdayPendingErr) throw yesterdayPendingErr;
+
+    return {
+      activeUsers: yesterdayActiveUsers?.length || 0,
+      bookingsToday: yesterdayBookings || 0,
+      currentOccupancy: yesterdayOccupancy,
+      pendingApprovals: yesterdayPending || 0,
+    };
+  };
+
   React.useEffect(() => {
     const fetchDashboardStats = async () => {
       setLoading(true);
@@ -48,6 +115,9 @@ const DashboardPage = () => {
         const mm = String(today.getMonth() + 1).padStart(2, "0");
         const dd = String(today.getDate()).padStart(2, "0");
         const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        // Fetch yesterday's stats first
+        const yesterdayStats = await fetchYesterdayStats();
 
         // Active users (users who have bookings today)
         const { data: activeUsersData, error: activeUsersErr } = await supabase
@@ -64,7 +134,7 @@ const DashboardPage = () => {
           .eq("session_date", todayStr);
         if (bookingsErr) throw bookingsErr;
 
-        // Current occupancy (sum of booked_slots, attended_count, and override_capacity for today's session_occurrences)
+        // Current occupancy
         const { data: occs, error: occErr } = await supabase
           .from("session_occurrences")
           .select("booked_slots, attended_count, override_capacity")
@@ -76,12 +146,42 @@ const DashboardPage = () => {
         );
         const maxCapacity = 15;
 
-        // Pending approvals (bookings with status 'pending')
+        // Pending approvals
         const { count: pendingApprovals, error: pendingErr } = await supabase
           .from("bookings")
           .select("*", { count: "exact", head: true })
           .eq("status", "pending");
         if (pendingErr) throw pendingErr;
+
+        // Calculate percentage changes
+        const percentActiveChange = calculatePercentageChange(
+          activeUsersData?.length || 0,
+          yesterdayStats.activeUsers
+        );
+        const percentBookingsChange = calculatePercentageChange(
+          bookingsToday || 0,
+          yesterdayStats.bookingsToday
+        );
+        const percentOccupancyChange = calculatePercentageChange(
+          currentOccupancy,
+          yesterdayStats.currentOccupancy
+        );
+        const percentPendingChange = calculatePercentageChange(
+          pendingApprovals || 0,
+          yesterdayStats.pendingApprovals
+        );
+
+        setStats({
+          activeUsers: activeUsersData?.length || 0,
+          bookingsToday: bookingsToday || 0,
+          currentOccupancy,
+          maxCapacity,
+          pendingApprovals: pendingApprovals || 0,
+          percentActiveChange,
+          percentBookingsChange,
+          percentOccupancyChange,
+          percentPendingChange,
+        });
 
         // Recent bookings (last 5) with user names
         const { data: recent, error: recentErr } = await supabase
@@ -116,17 +216,6 @@ const DashboardPage = () => {
           }
         }
 
-        setStats({
-          activeUsers: activeUsersData?.length || 0,
-          bookingsToday: bookingsToday || 0,
-          currentOccupancy,
-          maxCapacity,
-          pendingApprovals: pendingApprovals || 0,
-          percentActiveChange: 0, // TODO: implement trend
-          percentBookingsChange: 0,
-          percentOccupancyChange: 0,
-          percentPendingChange: 0,
-        });
         setRecentBookings(recentWithUsers);
       } catch (err) {
         let msg = "Failed to load dashboard stats";
@@ -191,7 +280,7 @@ const DashboardPage = () => {
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-lg font-semibold text-gray-700">
-              Current Active Users
+              Active Users
             </h3>
             {/* Placeholder Icon */}
             <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center">
@@ -213,7 +302,15 @@ const DashboardPage = () => {
             </div>
           </div>
           <p className="text-3xl font-bold text-text">{stats.activeUsers}</p>
-          <p className="text-sm text-gray-500">+12% from yesterday</p>
+          <p className={`text-sm ${
+            Math.abs(stats.percentActiveChange) < 1 
+              ? 'text-yellow-500' 
+              : stats.percentActiveChange > 0 
+                ? 'text-green-500' 
+                : 'text-red-500'
+          }`}>
+            {stats.percentActiveChange >= 0 ? '+' : ''}{stats.percentActiveChange.toFixed(0)}% from yesterday
+          </p>
         </div>
 
         {/* Today's Bookings Card */}
@@ -242,7 +339,15 @@ const DashboardPage = () => {
             </div>
           </div>
           <p className="text-3xl font-bold text-text">{stats.bookingsToday}</p>
-          <p className="text-sm text-gray-500">+5% from yesterday</p>
+          <p className={`text-sm ${
+            Math.abs(stats.percentBookingsChange) < 1 
+              ? 'text-yellow-500' 
+              : stats.percentBookingsChange > 0 
+                ? 'text-green-500' 
+                : 'text-red-500'
+          }`}>
+            {stats.percentBookingsChange >= 0 ? '+' : ''}{stats.percentBookingsChange.toFixed(0)}% from yesterday
+          </p>
         </div>
 
         {/* Current Occupancy Card */}
@@ -276,10 +381,17 @@ const DashboardPage = () => {
             </div>
           </div>
           <p className="text-3xl font-bold text-text">
-            {/* {stats.currentOccupancy} / {stats.maxCapacity} */}
-            {stats.currentOccupancy}
+            {stats.currentOccupancy} / {stats.maxCapacity}
           </p>
-          <p className="text-sm text-gray-500">46% from yesterday</p>
+          <p className={`text-sm ${
+            Math.abs(stats.percentOccupancyChange) < 1 
+              ? 'text-yellow-500' 
+              : stats.percentOccupancyChange > 0 
+                ? 'text-green-500' 
+                : 'text-red-500'
+          }`}>
+            {stats.percentOccupancyChange >= 0 ? '+' : ''}{stats.percentOccupancyChange.toFixed(0)}% from yesterday
+          </p>
         </div>
 
         {/* Pending Approvals Card */}
@@ -310,7 +422,15 @@ const DashboardPage = () => {
           <p className="text-3xl font-bold text-text">
             {stats.pendingApprovals}
           </p>
-          <p className="text-sm text-red-500">-2 from yesterday</p>
+          <p className={`text-sm ${
+            Math.abs(stats.percentPendingChange) < 1 
+              ? 'text-yellow-500' 
+              : stats.percentPendingChange > 0 
+                ? 'text-green-500' 
+                : 'text-red-500'
+          }`}>
+            {stats.percentPendingChange >= 0 ? '+' : ''}{stats.percentPendingChange.toFixed(0)}% from yesterday
+          </p>
         </div>
       </div>
 
