@@ -11,7 +11,7 @@ import {
   TimeSlot,
   fetchTodayTimeSlots,
   DEFAULT_MAXIMUM_CAPACITY,
-  dummySummary,
+  fetchTodaySummary,
   getCurrentGymOccupancy,
   debugLogAnalyticsForTodaySlots,
 } from "./models/SessionModel";
@@ -26,7 +26,12 @@ const SessionManagementPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [displayDate, setDisplayDate] = useState<string>("");
-  const summaryData = dummySummary;
+  const [summaryData, setSummaryData] = useState({
+    peakOccupancy: 0,
+    averageOccupancy: 0,
+    totalCheckIns: 0,
+    currentUtilization: '0%',
+  });
   const [currentSlotInfo, setCurrentSlotInfo] = useState<{ occupancy: number; slot: TimeSlot | null } | null>(null);
   const [editCapacityMode, setEditCapacityMode] = useState(false);
   const [pendingCapacity, setPendingCapacity] = useState<number>(maximumCapacity);
@@ -82,7 +87,8 @@ const SessionManagementPage = () => {
         setError("Failed to load session data.");
         setLoading(false);
       });
-    // TODO: Implement summaryData fetching if needed
+    // Fetch today's summary from DB
+    fetchTodaySummary().then(setSummaryData);
   }, []);
 
   // Use currentSlotInfo for occupancy
@@ -300,7 +306,6 @@ const SessionManagementPage = () => {
           {debugLoading ? 'Logging...' : '🔍'}
         </button>
       </div>
-
       {/* Top Section: Current Occupancy, Max Capacity, Today's Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Current Gym Occupancy */}

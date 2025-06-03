@@ -97,7 +97,7 @@ export const dummyTimeSlots: TimeSlot[] = [
 ];
 
 // Constants
-export const DEFAULT_MAXIMUM_CAPACITY = 50;
+export const DEFAULT_MAXIMUM_CAPACITY = 15;
 export const DEFAULT_CURRENT_OCCUPANCY = 23;
 
 // Supabase client (assume env vars are set)
@@ -271,4 +271,27 @@ export async function debugLogAnalyticsForTodaySlots() {
       max_capacity: slot.capacity || DEFAULT_MAXIMUM_CAPACITY,
     });
   }
+}
+
+// Fetch today's summary from the database
+export async function fetchTodaySummary(): Promise<SessionSummary> {
+  // Use MCP SQL logic for summary
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const { data, error } = await supabase.rpc('get_today_session_summary');
+  if (error || !data || data.length === 0) {
+    return {
+      peakOccupancy: 0,
+      averageOccupancy: 0,
+      totalCheckIns: 0,
+      currentUtilization: '0%',
+    };
+  }
+  const summary = data[0];
+  return {
+    peakOccupancy: summary.peak_occupancy || 0,
+    averageOccupancy: summary.average_occupancy || 0,
+    totalCheckIns: summary.total_checkins || 0,
+    currentUtilization: `${summary.current_utilization || 0}%`,
+  };
 } 
