@@ -56,6 +56,10 @@ const DashboardPage = () => {
     current_occupancy: number;
     pending_approvals: number;
   } | null>(null);
+  const [nextSession, setNextSession] = React.useState<null | { start: string, end: string }>(null);
+  const [currentTimePH, setCurrentTimePH] = React.useState<string>("");
+  const [currentSessionOccupancy, setCurrentSessionOccupancy] = React.useState<number|null>(null);
+  const [currentSessionTime, setCurrentSessionTime] = React.useState<string|null>(null);
 
   // Helper function to get yesterday's date in YYYY-MM-DD format
   const getYesterdayDate = () => {
@@ -259,6 +263,92 @@ const DashboardPage = () => {
     fetchGymStatus();
   }, []);
 
+  React.useEffect(() => {
+    // Update current time in Asia/Manila every 30 seconds
+    const updateTime = () => {
+      const now = new Date();
+      // Convert to Asia/Manila time
+      const phTime = now.toLocaleString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true });
+      setCurrentTimePH(phTime);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    // If gym is closed, fetch the next session for today
+    const fetchNextSession = async () => {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      // Get current Manila time as string (HH:MM:SS)
+      const nowPH = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      const nowTime = nowPH.toTimeString().slice(0,8);
+      // Find the next session_occurrence for today
+      const { data: sessions, error } = await supabase
+        .from('session_occurrences')
+        .select('start_time_of_day, end_time_of_day')
+        .eq('date', todayStr)
+        .eq('status', 'scheduled')
+        .gt('start_time_of_day', nowTime)
+        .order('start_time_of_day', { ascending: true })
+        .limit(1);
+      if (!error && sessions && sessions.length > 0) {
+        setNextSession({ start: sessions[0].start_time_of_day, end: sessions[0].end_time_of_day });
+      } else {
+        setNextSession(null);
+      }
+    };
+    if (gymStatusData?.gym_status === 'gym_closed') {
+      fetchNextSession();
+    } else {
+      setNextSession(null);
+    }
+  }, [gymStatusData]);
+
+  React.useEffect(() => {
+    // Find the current session occurrence for today and count confirmed bookings
+    const fetchCurrentSessionOccupancy = async () => {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, "0");
+      const dd = String(now.getDate()).padStart(2, "0");
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      // Get current Manila time as string (HH:MM:SS)
+      const nowPH = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+      const nowTime = nowPH.toTimeString().slice(0,8);
+      // Find the current session_occurrence for today
+      const { data: sessions, error } = await supabase
+        .from('session_occurrences')
+        .select('id, start_time_of_day, end_time_of_day')
+        .eq('date', todayStr)
+        .eq('status', 'scheduled')
+        .lte('start_time_of_day', nowTime)
+        .gt('end_time_of_day', nowTime)
+        .limit(1);
+      if (!error && sessions && sessions.length > 0) {
+        const session = sessions[0];
+        setCurrentSessionTime(`${session.start_time_of_day} - ${session.end_time_of_day}`);
+        // Count confirmed bookings for this session
+        const { count, error: bookingsErr } = await supabase
+          .from('bookings')
+          .select('*', { count: 'exact', head: true })
+          .eq('session_occurrence_id', session.id)
+          .eq('status', 'confirmed');
+        setCurrentSessionOccupancy(bookingsErr ? 0 : (count ?? 0));
+      } else {
+        setCurrentSessionTime(null);
+        setCurrentSessionOccupancy(null);
+      }
+    };
+    fetchCurrentSessionOccupancy();
+    const interval = setInterval(fetchCurrentSessionOccupancy, 60000); // update every minute
+    return () => clearInterval(interval);
+  }, []);
+
   // Helper to format date as 'Month Day, Year'
   function formatSessionDate(dateStr: string) {
     if (!dateStr) return "";
@@ -396,18 +486,14 @@ const DashboardPage = () => {
               </svg>
             </div>
           </div>
-          {/*
-            Gym status is determined by the get_current_gym_status RPC in Supabase.
-            If you see "Gym is not open" but there is a session, check:
-            - The session_occurrences table for a row with today's date, start_time_of_day <= now < end_time_of_day, and status = 'scheduled'.
-            - The RPC uses Asia/Manila timezone. If your session times are in UTC or another timezone, adjust accordingly.
-            - The session_occurrence must exist and match the current time window for the gym to be considered open.
-          */}
-          <p className="text-3xl font-bold text-text">
-            {gymStatusData?.gym_status === "gym_closed"
-              ? "Gym is not open"
-              : gymStatusData?.current_occupancy ?? 0}
-          </p>
+          {currentSessionOccupancy !== null ? (
+            <>
+              <div className="text-base text-gray-500 mb-1">Session: {currentSessionTime}</div>
+              <p className="text-3xl font-bold text-text">{currentSessionOccupancy}</p>
+            </>
+          ) : (
+            <p className="text-3xl font-bold text-text">Gym is not open</p>
+          )}
         </div>
         {/* Pending Approvals Card */}
         <div className="bg-white p-4 rounded-lg shadow">
