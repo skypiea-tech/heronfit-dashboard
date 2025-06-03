@@ -435,7 +435,7 @@ const AnnouncementsPage: React.FC = () => {
         />
       </div>
       <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Scheduled Communications</h2>
+        <h2 className="text-xl font-bold mb-4">Scheduled Announcements</h2>
       </div>
     </div>
   );
